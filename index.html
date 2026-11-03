@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10161a" />
+  <meta name="description" content="WorldCraft — 自然语言驱动的程序化三维世界编辑器" />
+  <title>WorldCraft — Procedural World Studio</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandmark"><svg viewBox="0 0 24 24" fill="none"><path d="m12 2 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 17l9 5 9-5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+        <div class="brandtext"><strong>WorldCraft</strong><span>PROCEDURAL WORLD STUDIO</span></div>
+      </div>
+      <span class="top-divider"></span>
+      <div class="breadcrumb"><span>Workspace</span><span class="chevron">/</span><strong id="project-name">Coastal Future City</strong><span class="version">V0.1</span></div>
+      <div class="toolbar-actions">
+        <span class="status"><i></i><span>LOCAL ENGINE</span></span>
+        <button class="btn ghost small" id="undo-btn" title="撤销 (Ctrl/⌘ + Z)">↶ <span>撤销</span></button>
+        <button class="btn ghost small" id="redo-btn" title="重做 (Ctrl/⌘ + Shift + Z)">↷ <span>重做</span></button>
+        <button class="btn ghost small" id="import-btn">导入</button>
+        <button class="btn primary small" id="export-btn"><svg viewBox="0 0 20 20"><path d="M10 2v10m0 0 4-4m-4 4L6 8M3 14v3h14v-3"/></svg> 导出场景</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden />
+      </div>
+    </header>
+    <main class="workspace">
+      <aside class="sidebar scene-panel">
+        <div class="sidebar-heading"><div><div class="eyebrow">SCENE GRAPH</div><h2>世界结构</h2></div><span class="muted-icon">☷</span></div>
+        <div class="scene-tree" id="scene-tree"></div>
+        <div class="sidebar-bottom">
+          <div class="eyebrow">GENERATION PIPELINE</div>
+          <div class="pipeline" id="pipeline"></div>
+        </div>
+      </aside>
+      <section class="center-column">
+        <div class="viewport-head">
+          <div class="view-label"><span class="tiny-dot"></span><strong>WORLD VIEWPORT</strong><span class="hint">Perspective · 3D</span></div>
+          <div class="view-actions"><button class="view-btn" id="camera-reset" title="重置视角">⌖ <span>适配视图</span></button><button class="view-btn icon-only" id="zoom-out" title="缩小">−</button><button class="view-btn icon-only" id="zoom-in" title="放大">+</button></div>
+        </div>
+        <div class="viewport" id="viewport">
+          <canvas id="world-canvas" aria-label="可旋转缩放、选择建筑的三维城市视窗"></canvas>
+          <div class="viewport-vignette" aria-hidden="true"></div>
+          <div class="viewport-top-left"><span class="outline-label">SCENE / 001</span><div class="world-caption" id="world-caption">PROCEDURAL FUTURE CITY</div></div>
+          <div class="viewport-top-right"><div class="compass"><span>N</span><svg viewBox="0 0 40 40"><path d="M20 4 25 18 20 15 15 18Z" fill="#dbb77b"/><path d="M20 36 25 22 20 25 15 22Z" fill="#71818a"/><circle cx="20" cy="20" r="4" fill="#9aadb0"/></svg></div></div>
+          <div class="viewport-bottom-left"><span class="viewport-guide">左键拖动旋转</span><span class="key-guide">滚轮缩放</span><span class="key-guide">右键拖动平移</span><span class="key-guide">点击建筑选择</span></div>
+          <div class="selection-callout" id="selection-callout" hidden></div>
+          <div class="viewport-bottom-right"><span class="live-dot"></span><span>LIVE GEOMETRY</span><strong id="mesh-count">—</strong></div>
+          <div id="viewer-error" class="viewer-error" hidden></div>
+        </div>
+        <div class="metric-strip" id="metric-strip"></div>
+        <section class="command-console">
+          <div class="console-header"><div><span class="sparkle">✦</span><strong>World Command</strong><span class="console-kicker">用自然语言修改生成规则</span></div><span class="engine-badge">规则解析 · 离线</span></div>
+          <form id="command-form" class="command-form"><textarea id="command-input" rows="2" placeholder="例如：将东侧建筑密度降低 30%，其他区域不变" spellcheck="false"></textarea><button class="send-btn" type="submit" id="send-btn" title="执行指令">↗</button></form>
+          <div class="prompt-examples" id="prompt-examples"></div>
+          <div class="command-feedback" id="command-feedback" role="status" aria-live="polite"><span class="feedback-icon">✓</span><span>城市已生成。选择一项规则或输入自然语言指令开始迭代。</span></div>
+        </section>
+      </section>
+      <aside class="sidebar inspector-panel">
+        <div class="sidebar-heading"><div><div class="eyebrow">PROCEDURAL LOGIC</div><h2>生成规则</h2></div><span class="muted-icon">⌘</span></div>
+        <div class="inspector-scroll">
+          <div class="inspector-section"><div class="section-title"><span>GLOBAL PARAMETERS</span><span class="section-counter">01 / 03</span></div><div id="global-rules"></div></div>
+          <div class="inspector-section"><div class="section-title"><span>SPATIAL DISTRIBUTION</span><span class="section-counter">02 / 03</span></div><div id="district-rules"></div></div>
+          <div class="inspector-section"><div class="section-title"><span>SELECTED OBJECT</span><span class="section-counter">03 / 03</span></div><div id="object-inspector"></div></div>
+          <div class="inspector-section comparison-section"><div class="section-title"><span>SCENARIO DELTA</span><button class="text-action" id="set-baseline">设置比较基线</button></div><div id="comparison"></div></div>
+          <div class="inspector-section"><div class="section-title"><span>RECENT CHANGES</span></div><div id="history-list"></div></div>
+        </div>
+        <div class="inspector-footer"><span>WORLDCRAFT ENGINE</span><span id="seed-footnote">SEED #42</span></div>
+      </aside>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10161a" />
+  <meta name="description" content="WorldCraft — 自然语言驱动的程序化三维世界编辑器" />
+  <title>WorldCraft — Procedural World Studio</title>
+  <style>
+:root{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:#e3e8e8;background:#0d1318;font-synthesis:none;-webkit-font-smoothing:antialiased;--bg:#0e1419;--panel:#161e24;--panel2:#192228;--line:#2a363e;--muted:#82949e;--subtle:#5b707a;--text:#e2e8e8;--accent:#b7ccb9;--warm:#d9b879}
+*{box-sizing:border-box}body{margin:0;overflow:hidden}button,textarea,input{font:inherit}button{cursor:pointer}button:disabled{opacity:.3;cursor:not-allowed}button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid #b7c8a6;outline-offset:2px}#app{display:flex;flex-direction:column;height:100vh;min-height:520px}.topbar{height:68px;min-height:68px;background:#11191e;border-bottom:1px solid #263139;display:flex;align-items:center;padding:0 24px;gap:24px}.brand{display:flex;align-items:center;gap:11px;white-space:nowrap}.brandmark{width:37px;height:37px;display:grid;place-items:center;background:#d9e5d7;color:#21312c;border-radius:9px}.brandmark svg{width:23px}.brandtext{display:flex;flex-direction:column;gap:1px}.brandtext strong{font-size:16px;letter-spacing:-.6px;font-weight:720}.brandtext span{font-size:8px;letter-spacing:1.5px;color:#788f94;font-weight:700}.top-divider{height:28px;width:1px;background:var(--line)}.breadcrumb{display:flex;gap:12px;align-items:center;font-size:12px;color:#7c8e94;white-space:nowrap}.breadcrumb strong{color:#d5dedb;font-size:12px;font-weight:530}.chevron{color:#586b72}.version{font-size:9px;letter-spacing:.7px;color:#b8c7b7;border:1px solid #405248;border-radius:4px;padding:4px 6px}.toolbar-actions{margin-left:auto;display:flex;align-items:center;gap:7px}.status{display:flex;align-items:center;gap:7px;margin-right:17px;font-size:10px;font-weight:650;letter-spacing:1.3px;color:#91b4a3}.status i,.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#79a792;box-shadow:0 0 10px #59856c77}.btn{border:1px solid transparent;color:#dce5e3;background:transparent;border-radius:7px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:530;transition:.16s}.btn.small{height:33px;padding:0 11px;font-size:12px}.btn.ghost{border-color:#303d45;color:#bbc8cb}.btn.ghost:hover{background:#253239}.btn.primary{background:#c1d3c6;color:#223229}.btn.primary:hover{background:#e0ebdf}.btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.workspace{display:grid;grid-template-columns:246px minmax(0,1fr) 304px;flex:1;min-height:0}.sidebar{background:var(--panel);min-width:0;display:flex;flex-direction:column}.scene-panel{border-right:1px solid var(--line)}.inspector-panel{border-left:1px solid var(--line)}.sidebar-heading{height:80px;min-height:80px;padding:19px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.eyebrow{font-size:9px;letter-spacing:1.5px;color:#758b94;font-weight:760}.sidebar-heading h2{font-size:15px;font-weight:630;letter-spacing:.1px;margin:7px 0 0}.muted-icon{font-size:19px;color:#61757f}.scene-tree{padding:17px 12px 12px;overflow:auto;flex:1}.tree-heading{display:flex;align-items:center;gap:9px;color:#a3b4b5;font-size:11px;font-weight:690;letter-spacing:.7px;margin:11px 7px 9px}.tree-heading:first-child{margin-top:0}.tree-heading .small-label{margin-left:auto;font-size:10px;background:#29383d;padding:3px 5px;border-radius:4px;color:#b9c8c6}.tree-item{width:100%;display:flex;align-items:center;gap:9px;text-align:left;padding:9px 9px;border:0;border-radius:7px;background:transparent;color:#b5c3c4;font-size:12px}.tree-item:hover{background:#233038}.tree-item.selected{background:#34443d;color:#deede1}.tree-item.indent{padding-left:20px}.tree-item.small-indent{padding-left:32px}.tree-item .node-icon{width:18px;text-align:center;color:#b2c5b7;font-size:14px}.tree-item .node-icon.gray{color:#748b96}.tree-item .node-count{margin-left:auto;color:#708892;font-size:10px}.tree-item .secondary{color:#869b9e;margin-left:auto;font-size:10px}.tree-item.bld{font-size:11px;padding-block:7px}.tree-more{border:0;background:transparent;color:#839a91;font-size:11px;padding:10px 25px;text-align:left;width:100%}.sidebar-bottom{border-top:1px solid var(--line);padding:21px 19px 20px}.pipeline{display:flex;flex-direction:column;gap:11px;margin-top:17px}.pipeline-step{display:flex;align-items:center;gap:11px;font-size:11px;color:#adbfbb}.pipeline-step .num{display:grid;place-items:center;width:20px;height:20px;border:1px solid #42544c;border-radius:5px;color:#b0cfb9;font-size:9px}.pipeline-step .line{margin-left:auto;display:block;width:17px;height:4px;background:#5c8570;border-radius:3px}.center-column{min-width:0;min-height:0;display:flex;flex-direction:column;background:#111a20}.viewport-head{height:52px;min-height:52px;border-bottom:1px solid #2c373e;display:flex;align-items:center;justify-content:space-between;padding:0 23px}.view-label{display:flex;align-items:center;gap:10px;font-size:10px;letter-spacing:1.2px;color:#c8d7d2}.view-label strong{font-size:10px}.view-label .hint{font-size:11px;color:#80949e;letter-spacing:0;margin-left:3px}.tiny-dot{width:6px;height:6px;border:1px solid #91b0a8;border-radius:2px;transform:rotate(45deg)}.view-actions{display:flex;gap:6px}.view-btn{height:29px;background:#1d292f;border:1px solid #31414a;border-radius:6px;color:#c0cfca;padding:0 10px;font-size:11px;display:flex;align-items:center;gap:7px}.view-btn:hover{background:#2c3d43}.view-btn.icon-only{width:30px;justify-content:center;font-size:18px}.viewport{position:relative;min-height:250px;flex:1;overflow:hidden;background:radial-gradient(circle at 52% 35%,#46575c 0%,#303f47 40%,#1a2931 79%,#111e27 100%)}#world-canvas{width:100%;height:100%;position:absolute;inset:0;display:block;cursor:grab;touch-action:none}#world-canvas:active{cursor:grabbing}.viewport-vignette{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 130px #0d161a7d}.viewport-top-left{position:absolute;top:24px;left:27px;pointer-events:none}.outline-label{font-size:9px;color:#b3c5c5;letter-spacing:1.5px;font-weight:800}.world-caption{font-size:18px;color:#f1f4ef;font-weight:480;margin-top:9px;letter-spacing:1px;text-shadow:0 2px 14px #0a1215bb}.viewport-top-right{position:absolute;top:19px;right:21px}.compass{width:49px;height:57px;display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.9}.compass span{font-size:10px;color:#e1e8dc}.compass svg{width:34px;height:34px}.viewport-bottom-left{position:absolute;bottom:23px;left:27px;display:flex;align-items:center;gap:13px;flex-wrap:wrap}.viewport-guide,.key-guide{font-size:10px;color:#d0dbd6;background:#152129a1;padding:6px 8px;border:1px solid #50606877;border-radius:5px}.key-guide{color:#a7b7b9;background:transparent;border-color:transparent;padding:6px 0}.viewport-bottom-right{position:absolute;right:23px;bottom:22px;background:#1c2b31bf;border:1px solid #4b5b6177;border-radius:6px;padding:8px 11px;font-size:9px;letter-spacing:1px;display:flex;align-items:center;gap:8px;color:#abbeb9}.viewport-bottom-right strong{font-size:11px;color:#e4eade;letter-spacing:0}.selection-callout{position:absolute;top:88px;left:27px;background:#19262cdd;border:1px solid #8ba69699;border-left:3px solid #e2bd7a;border-radius:5px;padding:11px 13px;max-width:230px;color:#dce6e1;font-size:11px;line-height:1.8;pointer-events:none}.selection-callout strong{display:block;color:#e5c58b;font-size:13px}.viewer-error{position:absolute;inset:30%;background:#17252a;color:#e4d8bb;border-radius:12px;padding:25px;text-align:center;z-index:10}.metric-strip{height:76px;min-height:76px;background:#172228;border-top:1px solid #2c393e;border-bottom:1px solid #2b393f;display:grid;grid-template-columns:repeat(4,1fr);padding:11px 12px}.metric{padding:2px 21px;border-right:1px solid #2c3c42}.metric:last-child{border-right:0}.metric label{display:block;font-size:9px;letter-spacing:1px;color:#82979c;font-weight:700}.metric .metric-value{font-size:19px;font-weight:510;color:#e7eae5;line-height:1.85;white-space:nowrap}.metric .metric-value small{font-size:11px;color:#8fa29c;font-weight:400}.command-console{padding:17px 22px 15px;background:#131c22;min-height:222px;border-top:1px solid #2c383f}.console-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}.console-header>div{display:flex;align-items:center;gap:9px}.console-header strong{font-size:12px;font-weight:630}.sparkle{color:#d9bf8a;font-size:17px}.console-kicker{font-size:11px;color:#778e96}.engine-badge{font-size:9px;border:1px solid #45564f;padding:5px 7px;border-radius:5px;color:#a7c5ae}.command-form{border:1px solid #486153;border-radius:9px;background:#1b282b;display:flex;align-items:stretch;overflow:hidden;transition:border-color .2s}.command-form:focus-within{border-color:#b1cbb2}.command-form textarea{flex:1;min-width:0;resize:none;border:0;outline:none!important;background:transparent;color:#ecf1eb;padding:13px 16px;font-size:12px;line-height:1.65}.command-form textarea::placeholder{color:#768b8d}.send-btn{width:44px;min-width:44px;align-self:center;margin-right:9px;height:36px;border:0;border-radius:7px;background:#c6d9c9;color:#283e32;font-size:24px;line-height:1}.send-btn:hover{background:white}.prompt-examples{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}.prompt-chip{background:#202e32;border:1px solid #3c4b4c;color:#acbdb7;font-size:10px;padding:7px 10px;border-radius:6px;white-space:nowrap}.prompt-chip:hover{border-color:#a9bdac;color:#e2eee0}.command-feedback{margin-top:10px;color:#a8b8b3;font-size:11px;line-height:1.45;display:flex;align-items:center;gap:8px;min-height:16px}.command-feedback.error{color:#e3ad96}.feedback-icon{color:#98c4a3}.command-feedback.error .feedback-icon{color:#df9e87}.inspector-scroll{min-height:0;overflow:auto;flex:1}.inspector-section{border-bottom:1px solid #2a363e;padding:20px 19px 19px}.section-title{display:flex;align-items:center;justify-content:space-between;color:#92a5aa;font-size:9px;font-weight:760;letter-spacing:1.25px;margin-bottom:17px}.section-counter{font-size:10px;color:#667e86;font-weight:400}.setting{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:13px 0}.setting-label{font-size:11px;color:#cad7d2;white-space:nowrap}.setting .detail{display:block;margin-top:4px;font-size:10px;color:#738b91}.setting-control{display:flex;align-items:center;gap:4px}.setting-value{min-width:50px;text-align:center;color:#e3e8e0;font-size:12px;font-variant-numeric:tabular-nums}.increment{width:23px;height:23px;display:grid;place-items:center;border:1px solid #34474c;border-radius:5px;background:#26333a;color:#b3c4be;font-size:15px}.increment:hover{background:#40554c}.rule-track{height:3px;background:#33464b;margin:3px 0 16px;border-radius:4px;overflow:hidden}.rule-track span{display:block;height:100%;background:#9ec0a9;border-radius:4px}.setting.inline .setting-label{min-width:105px}.pill{font-size:10px;color:#b1c4b8;background:#2c4038;border-radius:5px;padding:5px 7px}.muted-text{font-size:11px;color:#869ca0;line-height:1.65}.object-card{background:#1d2a2f;border:1px solid #33464c;border-radius:7px;padding:12px}.object-card .object-title{font-size:12px;font-weight:650;color:#e0c88f;margin-bottom:10px}.object-data{display:grid;grid-template-columns:1fr 1fr;gap:10px}.object-data span{display:block;color:#799196;font-size:9px}.object-data strong{display:block;font-size:11px;color:#e1e7e0;margin-top:4px;font-weight:540}.comparison-section{background:#182228}.text-action{background:transparent;border:0;padding:0;color:#adc5ae;font-size:10px}.text-action:hover{text-decoration:underline}.delta-row{display:flex;align-items:center;justify-content:space-between;margin:11px 0;font-size:11px;color:#a7bab6}.delta-row strong{font-weight:660;color:#e0e9e1}.delta-row strong.negative{color:#dcb285}.delta-row strong.positive{color:#a7c9a8}.tiny-progress{height:5px;background:#293a3c;border-radius:3px;overflow:hidden;margin:6px 0 11px;display:flex}.tiny-progress span{background:#83afa0;height:100%}.history-row{position:relative;border-left:1px solid #465a57;margin-left:4px;padding:0 0 15px 15px}.history-row:before{content:'';position:absolute;left:-4px;top:1px;width:7px;height:7px;border:1px solid #9ab7a6;background:#192528;border-radius:50%}.history-row:last-child{padding-bottom:0}.history-row span{display:block;font-size:10px;color:#728a90;margin-bottom:4px}.history-row strong{font-size:11px;font-weight:480;color:#bfcec7;line-height:1.5;display:block}.inspector-footer{height:44px;min-height:44px;border-top:1px solid var(--line);padding:0 18px;display:flex;align-items:center;justify-content:space-between;font-size:9px;letter-spacing:1.1px;color:#667e86}.toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:50;padding:12px 18px;background:#d7e4d7;color:#20362a;border-radius:9px;font-size:12px;box-shadow:0 18px 55px #0008;transition:.2s}.toast.show{opacity:1;transform:translate(-50%,0)}@media(max-width:1280px){.workspace{grid-template-columns:205px minmax(0,1fr) 265px}.topbar{gap:15px;padding:0 16px}.status{display:none}.scene-panel .sidebar-bottom{padding-inline:12px}.metric{padding-inline:12px}.prompt-chip{padding:6px 7px}.command-console{padding:14px 15px}.viewport-bottom-left .key-guide:last-child{display:none}}@media(max-width:1020px){.workspace{grid-template-columns:minmax(0,1fr) 260px}.scene-panel{display:none}.breadcrumb{display:none}.viewport{min-height:200px}.metric-strip{height:70px;min-height:70px}.command-console{min-height:203px}.topbar{height:58px;min-height:58px}}@media(max-width:700px){body{overflow:auto}#app{min-height:920px;height:100svh}.workspace{display:flex;flex-direction:column;overflow:auto}.inspector-panel{border-left:0;border-top:1px solid var(--line);min-height:310px;max-height:440px}.center-column{min-height:610px;flex:0 0 610px}.viewport{height:310px}.topbar .toolbar-actions{gap:4px}.topbar .toolbar-actions .btn.ghost{display:none}.topbar .toolbar-actions .btn.primary{padding-inline:8px}.brandtext span{font-size:7px}.viewport-head{padding-inline:12px}.viewport-top-left{left:14px;top:14px}.viewport-bottom-left{left:14px;bottom:12px}.viewport-bottom-left .key-guide{display:none}.viewport-bottom-right{right:10px;bottom:10px}.metric .metric-value{font-size:15px}.metric{padding:3px 6px}.metric label{font-size:8px}.console-kicker{display:none}.command-console{padding:12px}.inspector-scroll{display:grid;grid-template-columns:1fr 1fr;overflow:visible}.inspector-section{padding:14px}.inspector-footer{display:none}}@media(max-height:820px) and (min-width:701px){.topbar{height:56px;min-height:56px}.sidebar-heading{height:64px;min-height:64px}.viewport-head{height:44px;min-height:44px}.metric-strip{height:63px;min-height:63px}.command-console{min-height:190px;padding-top:12px}.scene-panel .sidebar-bottom{padding-top:13px;padding-bottom:13px}.pipeline{gap:7px}.viewport-top-left{top:14px}.viewport-bottom-left{bottom:12px}}
+@media(max-width:500px){.inspector-panel{max-height:none;min-height:740px}.inspector-scroll{display:block}.inspector-section{padding:16px}.view-label .hint{display:none}.toolbar-actions .btn.primary{font-size:11px}.view-actions .view-btn span{display:none}}
+
+</style>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandmark"><svg viewBox="0 0 24 24" fill="none"><path d="m12 2 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 17l9 5 9-5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
+        <div class="brandtext"><strong>WorldCraft</strong><span>PROCEDURAL WORLD STUDIO</span></div>
+      </div>
+      <span class="top-divider"></span>
+      <div class="breadcrumb"><span>Workspace</span><span class="chevron">/</span><strong id="project-name">Coastal Future City</strong><span class="version">V0.1</span></div>
+      <div class="toolbar-actions">
+        <span class="status"><i></i><span>LOCAL ENGINE</span></span>
+        <button class="btn ghost small" id="undo-btn" title="撤销 (Ctrl/⌘ + Z)">↶ <span>撤销</span></button>
+        <button class="btn ghost small" id="redo-btn" title="重做 (Ctrl/⌘ + Shift + Z)">↷ <span>重做</span></button>
+        <button class="btn ghost small" id="import-btn">导入</button>
+        <button class="btn primary small" id="export-btn"><svg viewBox="0 0 20 20"><path d="M10 2v10m0 0 4-4m-4 4L6 8M3 14v3h14v-3"/></svg> 导出场景</button>
+        <input type="file" id="import-file" accept=".json,application/json" hidden />
+      </div>
+    </header>
+    <main class="workspace">
+      <aside class="sidebar scene-panel">
+        <div class="sidebar-heading"><div><div class="eyebrow">SCENE GRAPH</div><h2>世界结构</h2></div><span class="muted-icon">☷</span></div>
+        <div class="scene-tree" id="scene-tree"></div>
+        <div class="sidebar-bottom">
+          <div class="eyebrow">GENERATION PIPELINE</div>
+          <div class="pipeline" id="pipeline"></div>
+        </div>
+      </aside>
+      <section class="center-column">
+        <div class="viewport-head">
+          <div class="view-label"><span class="tiny-dot"></span><strong>WORLD VIEWPORT</strong><span class="hint">Perspective · 3D</span></div>
+          <div class="view-actions"><button class="view-btn" id="camera-reset" title="重置视角">⌖ <span>适配视图</span></button><button class="view-btn icon-only" id="zoom-out" title="缩小">−</button><button class="view-btn icon-only" id="zoom-in" title="放大">+</button></div>
+        </div>
+        <div class="viewport" id="viewport">
+          <canvas id="world-canvas" aria-label="可旋转缩放、选择建筑的三维城市视窗"></canvas>
+          <div class="viewport-vignette" aria-hidden="true"></div>
+          <div class="viewport-top-left"><span class="outline-label">SCENE / 001</span><div class="world-caption" id="world-caption">PROCEDURAL FUTURE CITY</div></div>
+          <div class="viewport-top-right"><div class="compass"><span>N</span><svg viewBox="0 0 40 40"><path d="M20 4 25 18 20 15 15 18Z" fill="#dbb77b"/><path d="M20 36 25 22 20 25 15 22Z" fill="#71818a"/><circle cx="20" cy="20" r="4" fill="#9aadb0"/></svg></div></div>
+          <div class="viewport-bottom-left"><span class="viewport-guide">左键拖动旋转</span><span class="key-guide">滚轮缩放</span><span class="key-guide">右键拖动平移</span><span class="key-guide">点击建筑选择</span></div>
+          <div class="selection-callout" id="selection-callout" hidden></div>
+          <div class="viewport-bottom-right"><span class="live-dot"></span><span>LIVE GEOMETRY</span><strong id="mesh-count">—</strong></div>
+          <div id="viewer-error" class="viewer-error" hidden></div>
+        </div>
+        <div class="metric-strip" id="metric-strip"></div>
+        <section class="command-console">
+          <div class="console-header"><div><span class="sparkle">✦</span><strong>World Command</strong><span class="console-kicker">用自然语言修改生成规则</span></div><span class="engine-badge">规则解析 · 离线</span></div>
+          <form id="command-form" class="command-form"><textarea id="command-input" rows="2" placeholder="例如：将东侧建筑密度降低 30%，其他区域不变" spellcheck="false"></textarea><button class="send-btn" type="submit" id="send-btn" title="执行指令">↗</button></form>
+          <div class="prompt-examples" id="prompt-examples"></div>
+          <div class="command-feedback" id="command-feedback" role="status" aria-live="polite"><span class="feedback-icon">✓</span><span>城市已生成。选择一项规则或输入自然语言指令开始迭代。</span></div>
+        </section>
+      </section>
+      <aside class="sidebar inspector-panel">
+        <div class="sidebar-heading"><div><div class="eyebrow">PROCEDURAL LOGIC</div><h2>生成规则</h2></div><span class="muted-icon">⌘</span></div>
+        <div class="inspector-scroll">
+          <div class="inspector-section"><div class="section-title"><span>GLOBAL PARAMETERS</span><span class="section-counter">01 / 03</span></div><div id="global-rules"></div></div>
+          <div class="inspector-section"><div class="section-title"><span>SPATIAL DISTRIBUTION</span><span class="section-counter">02 / 03</span></div><div id="district-rules"></div></div>
+          <div class="inspector-section"><div class="section-title"><span>SELECTED OBJECT</span><span class="section-counter">03 / 03</span></div><div id="object-inspector"></div></div>
+          <div class="inspector-section comparison-section"><div class="section-title"><span>SCENARIO DELTA</span><button class="text-action" id="set-baseline">设置比较基线</button></div><div id="comparison"></div></div>
+          <div class="inspector-section"><div class="section-title"><span>RECENT CHANGES</span></div><div id="history-list"></div></div>
+        </div>
+        <div class="inspector-footer"><span>WORLDCRAFT ENGINE</span><span id="seed-footnote">SEED #42</span></div>
+      </aside>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script>
+'use strict';
+const __pcg = (()=>{
+/** WorldCraft V0.1 — deterministic, dependency-free scene schema and PCG logic. */
+const SCHEMA_VERSION = 1;
+const DEFAULT_WORLD = Object.freeze({
+  schemaVersion: SCHEMA_VERSION,
+  name: 'Coastal Future City',
+  size: 400,
+  seed: 42,
+  eastDensity: 0.78,
+  westDensity: 0.84,
+  heightScale: 1,
+  plazaRadius: 60,
+  style: 'future'
+});
+
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+const approx = (a,b) => Math.abs(a-b)<1e-8;
+
+/** Stable per-cell pseudorandom source. Results do not depend on iteration or occupancy. */
+function randomFor(seed, x, z, channel = 0) {
+  let n = (Math.imul(seed|0, 374761393) ^ Math.imul(x+4096, 668265263) ^ Math.imul(z+4096, 2246822519) ^ Math.imul(channel+17, 3266489917)) | 0;
+  n = Math.imul(n ^ (n >>> 13), 1274126177);
+  n ^= n >>> 16;
+  return (n >>> 0) / 4294967296;
+}
+
+function validateWorld(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('无效的世界文件');
+  if (input.schemaVersion !== SCHEMA_VERSION) throw new Error('不支持此世界文件版本');
+  const world = {};
+  for (const key of Object.keys(DEFAULT_WORLD)) {
+    world[key] = input[key] ?? DEFAULT_WORLD[key];
+  }
+  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius'];
+  for (const key of nums) if (typeof world[key] !== 'number' || !Number.isFinite(world[key])) throw new Error(`参数 ${key} 必须为有限数字`);
+  if (!Number.isInteger(world.seed) || world.seed < 0 || world.seed > 1000000000) throw new Error('随机种子必须是 0–1,000,000,000 的整数');
+  if (!Number.isInteger(world.size) || world.size < 200 || world.size > 800 || world.size % 20 !== 0) throw new Error('世界尺寸应为 200–800m 且为 20 的倍数');
+  if (world.eastDensity < 0 || world.eastDensity > 1 || world.westDensity < 0 || world.westDensity > 1) throw new Error('建筑密度须在 0%–100% 之间');
+  if (world.heightScale < 0.2 || world.heightScale > 3) throw new Error('高度倍率应为 0.2–3');
+  if (world.plazaRadius < 20 || world.plazaRadius > Math.min(world.size/2-15,160)) throw new Error('中央开放空间半径不在允许范围内');
+  if (typeof world.name !== 'string' || world.name.length > 120) throw new Error('世界名称无效');
+  if (world.style !== 'future') throw new Error('当前版本仅支持 future 风格');
+  return world;
+}
+
+function generateCity(worldInput) {
+  const world = validateWorld(worldInput);
+  const buildings = [], trees = [];
+  const cols = world.size / 20;
+  let eastEligible = 0, westEligible = 0;
+  for (let row=0;row<cols;row++) {
+    for (let col=0;col<cols;col++) {
+      const bx = -world.size/2 + (col+0.5)*20;
+      const bz = -world.size/2 + (row+0.5)*20;
+      const jitterX = (randomFor(world.seed,col,row,1)-0.5)*4.8;
+      const jitterZ = (randomFor(world.seed,col,row,2)-0.5)*4.8;
+      const x = bx + jitterX, z = bz+jitterZ;
+      const dist = Math.hypot(x,z);
+      const inPlaza = dist < world.plazaRadius + 10;
+      // A gentle, rotated public-space promenade on the south-west axis.
+      const inPromenade = z > -world.size*0.35 && z < world.size*0.10 && Math.abs(x-0.34*z+42)<10.5;
+      const east = bx >= 0;
+      const probability = east ? world.eastDensity : world.westDensity;
+      const eligible = !inPlaza && !inPromenade;
+      if (eligible) east ? eastEligible++ : westEligible++;
+      const occupancy = randomFor(world.seed,col,row,3);
+      if (eligible && occupancy < probability) {
+        const centerWeight = Math.pow(Math.max(0,1-dist/(world.size*0.76)),1.55);
+        const hNoise = randomFor(world.seed,col,row,4);
+        const height = (12 + 98*centerWeight*(0.65+hNoise*0.67))*world.heightScale;
+        const width = 11.0 + randomFor(world.seed,col,row,5)*4.8;
+        const depth = 11.0 + randomFor(world.seed,col,row,6)*4.8;
+        const typ = randomFor(world.seed,col,row,7);
+        buildings.push({
+          id: `B-${String(row).padStart(2,'0')}-${String(col).padStart(2,'0')}`,
+          row, col, region: east ? '东侧' : '西侧', x, z,
+          width, depth, height, type: typ>0.85?'terraced':typ>0.56?'tower':'slab',
+          tone: randomFor(world.seed,col,row,8),
+          footprint: width*depth
+        });
+      } else if (!inPlaza && randomFor(world.seed,col,row,9) < (eligible ? 0.63 : 0.36)) {
+        const n = 1 + (randomFor(world.seed,col,row,10)>0.66?1:0);
+        for (let t=0;t<n;t++) trees.push({
+          id:`T-${row}-${col}-${t}`,
+          x:bx+(randomFor(world.seed,col,row,11+t)*2-1)*6,
+          z:bz+(randomFor(world.seed,col,row,13+t)*2-1)*6,
+          height:3.2+randomFor(world.seed,col,row,15+t)*3.5
+        });
+      }
+    }
+  }
+  // Plaza landscape: deterministic trees around the perimeter, outside the inner clearing.
+  for (let i=0;i<52;i++) {
+    const theta = 2*Math.PI*(i/52)+(randomFor(world.seed,i,1,16)-.5)*0.10;
+    const r = world.plazaRadius * (0.86+randomFor(world.seed,i,2,16)*0.24);
+    const x=Math.cos(theta)*r,z=Math.sin(theta)*r;
+    if (Math.abs(x-0.34*z+42)>12) trees.push({id:`P-${i}`,x,z,height:3.4+randomFor(world.seed,i,3,16)*3.3});
+  }
+  const eastBuildings = buildings.filter(b=>b.region==='东侧');
+  const westBuildings = buildings.filter(b=>b.region==='西侧');
+  const footprint = buildings.reduce((sum,b)=>sum+b.footprint,0);
+  const totalHeight = buildings.reduce((sum,b)=>sum+b.height,0);
+  const maxHeight = buildings.reduce((m,b)=>Math.max(m,b.height),0);
+  return {
+    world, buildings, trees,
+    metrics: {
+      total: buildings.length,
+      east: eastBuildings.length,
+      west: westBuildings.length,
+      eastEligible, westEligible,
+      coverage: footprint / (world.size*world.size),
+      avgHeight: buildings.length ? totalHeight/buildings.length : 0,
+      maxHeight,
+      plazaArea: Math.PI*world.plazaRadius*world.plazaRadius
+    }
+  };
+}
+
+const cnNumeral = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+function parseNumber(text) {
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text);
+  if (text==='十') return 10;
+  if (text.includes('十')) { const [a,b]=text.split('十'); return (a?cnNumeral[a]??0:1)*10+(b?cnNumeral[b]??0:0); }
+  return cnNumeral[text];
+}
+function parsePercent(text) {
+  const match = text.match(/(?:百分之\s*([\d.]+|[一二三四五六七八九十]+))|(?:([\d.]+)\s*%)/);
+  if (!match) return null;
+  const num = parseNumber(match[1]||match[2]);
+  return Number.isFinite(num) ? num/100 : null;
+}
+const has = (text, expressions) => expressions.some(s=>text.includes(s));
+
+/** Lightweight, auditable offline intent parser; NOT a language model. */
+function parseCommand(text) {
+  const source = String(text??'').trim();
+  if (!source) return {type:'error',message:'请先输入一条生成或编辑指令。'};
+  const s=source.toLowerCase().replace(/\s+/g,' ');
+  const region = has(s,['东侧','东边','东部','东区','eastern','east side',' east ']) ? 'east' :
+    has(s,['西侧','西边','西部','西区','western','west side',' west ']) ? 'west' : 'global';
+  const increase = has(s,['增加','提高','提升','扩大','增大','升高','增高','更密','more','increase','raise','higher','expand']);
+  const decrease = has(s,['降低','减少','减小','缩小','削减','稀疏','更低','decrease','reduce','lower','less']);
+  const pct=parsePercent(s);
+  const numMatch=s.match(/(?:为|至|到|设为|设置为|半径)\s*(\d+(?:\.\d+)?)\s*(?:米|m)?/);
+  const sizeMatch=s.match(/(\d{3})\s*(?:m|米)?\s*[×x*]\s*(\d{3})\s*(?:m|米)?/);
+  if (has(s,['生成','创建','新建','搭建','重新生成','create','generate','new world']) && has(s,['城市','世界','city','world','建筑群'])) {
+    if (sizeMatch && sizeMatch[1]!==sizeMatch[2]) return {type:'error',message:'V0.1 只支持正方形世界，请输入 400×400m 等尺寸。'};
+    let size=sizeMatch?Number(sizeMatch[1]):400;
+    if(size<200 || size>800 || size%20!==0) return {type:'error',message:'世界尺寸须在 200–800m 之间，且为 20m 的倍数。'};
+    return {type:'generate',size,description:`生成 ${size}×${size}m 程序化未来城市`};
+  }
+  if (has(s,['随机种子','seed'])) {
+    const seed=(s.match(/(?:种子|seed)[^\d]*(\d+)/)||[])[1];
+    return seed ? {type:'set',key:'seed',value:Math.floor(Number(seed)),description:`随机种子设为 ${seed}`} : {type:'error',message:'请指定种子整数，例如「随机种子设为 72」。'};
+  }
+  if (has(s,['密度','稀疏','疏密','density'])) {
+    if(region==='global') return {type:'error',message:'首版请指定“东侧”或“西侧”建筑密度，避免误改整个城市。'};
+    const key=region==='east'?'eastDensity':'westDensity';
+    if (pct===null) return {type:'error',message:'请指定百分比，例如「将东侧建筑密度降低 30%」。'};
+    if (!increase && !decrease && has(s,['设为','设置为','调整到','变成','set to'])) return {type:'set',key,value:pct,description:`${region==='east'?'东侧':'西侧'}建筑密度设为 ${Math.round(pct*100)}%`};
+    if(increase===decrease) return {type:'error',message:'请说明是“提高”还是“降低”密度。'};
+    return {type:'scale',key,factor:decrease?1-pct:1+pct,description:`${region==='east'?'东侧':'西侧'}建筑密度${decrease?'降低':'提高'} ${Math.round(pct*100)}%`};
+  }
+  if(has(s,['开放空间','广场','plaza','open space'])) {
+    if(pct!==null && (increase!==decrease)) return {type:'scale',key:'plazaRadius',factor:decrease?1-pct:1+pct,description:`中央开放空间半径${decrease?'缩小':'扩大'} ${Math.round(pct*100)}%`};
+    const rad = numMatch? Number(numMatch[1]):null;
+    if(rad!==null && has(s,['半径','设为','设置为','调整到'])) return {type:'set',key:'plazaRadius',value:rad,description:`中央开放空间半径设为 ${rad}m`};
+    return {type:'error',message:'可尝试「扩大中央开放空间 20%」或「广场半径设为 70m」。'};
+  }
+  if (has(s,['高度','建筑高','高楼','height'])) {
+    if(region!=='global') return {type:'error',message:'首版高度规则作用于全城；分区高度控制将在后续加入。'};
+    if(pct===null || increase===decrease) return {type:'error',message:'请尝试「整体建筑高度提高 20%」。'};
+    return {type:'scale',key:'heightScale',factor:decrease?1-pct:1+pct,description:`全城建筑高度${decrease?'降低':'提高'} ${Math.round(pct*100)}%`};
+  }
+  return {type:'error',message:'暂未识别此指令。可尝试生成城市、调整东/西侧建筑密度、整体高度或中央开放空间。'};
+}
+
+function applyCommand(worldInput, command) {
+  const w=validateWorld(worldInput);
+  if(command.type==='error') return {ok:false,error:command.message};
+  if(command.type==='generate') return {ok:true,world:validateWorld({...DEFAULT_WORLD,size:command.size}),description:command.description};
+  if(!['scale','set'].includes(command.type)||!Object.hasOwn(w,command.key)) return {ok:false,error:'未授权的规则操作。'};
+  const value=command.type==='set'?command.value:Number((w[command.key]*command.factor).toFixed(5));
+  try {
+    const next=validateWorld({...w,[command.key]:value});
+    if(approx(w[command.key],next[command.key])) return {ok:false,error:'生成规则没有变化。'};
+    return {ok:true,world:next,description:command.description};
+  } catch (e) { return {ok:false,error:e.message}; }
+}
+
+function compareScenes(previous,current) {
+  const past=new Map(previous.buildings.map(b=>[b.id,b]));
+  const currentIds=new Set(current.buildings.map(b=>b.id));
+  const added=current.buildings.filter(b=>!past.has(b.id)).length;
+  const removed=previous.buildings.filter(b=>!currentIds.has(b.id)).length;
+  let modified=0, unchanged=0;
+  for (const b of current.buildings) {
+    if(!past.has(b.id)) continue;
+    const p=past.get(b.id);
+    if(b.height!==p.height || b.width!==p.width || b.depth!==p.depth || b.x!==p.x || b.z!==p.z) modified++;
+    else unchanged++;
+  }
+  return {added,removed,modified,unchanged};
+}
+
+function makeExport(world,history=[]) {
+  return {
+    format:'WorldCraft',version:SCHEMA_VERSION,
+    exportedAt:new Date().toISOString(),
+    world:validateWorld(world),
+    history:history.slice(-100).map(i=>({time:String(i.time||''),description:String(i.description||'')}))
+  };
+}
+
+function readExport(doc) {
+  if(!doc||doc.format!=='WorldCraft'||doc.version!==SCHEMA_VERSION) throw new Error('不是兼容的 WorldCraft V0.1 场景文件');
+  return validateWorld(doc.world);
+}
+
+return { DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport };
+})();
+const __renderer = (()=>{
+/* WorldCraft compact WebGL2 viewer. Dependency-free, interactive true 3D geometry. */
+const VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPosition;
+layout(location=1) in vec3 aNormal;
+layout(location=2) in vec3 iOffset;
+layout(location=3) in vec3 iScale;
+layout(location=4) in vec3 iColor;
+layout(location=5) in float iRotation;
+uniform mat4 uViewProjection;
+out vec3 vColor;
+out vec3 vNormal;
+out vec3 vWorld;
+void main(){
+  vec3 q = aPosition*iScale;
+  float c=cos(iRotation),s=sin(iRotation);
+  q=vec3(c*q.x-s*q.z,q.y,s*q.x+c*q.z);
+  vec3 n=vec3(c*aNormal.x-s*aNormal.z,aNormal.y,s*aNormal.x+c*aNormal.z);
+  vec3 w=q+iOffset;
+  gl_Position=uViewProjection*vec4(w,1.0);
+  vColor=iColor;vNormal=n;vWorld=w;
+}`;
+const FS = `#version 300 es
+precision highp float;
+in vec3 vColor;in vec3 vNormal;in vec3 vWorld;
+uniform vec3 uCamera;
+uniform float uIsArchitecture;
+out vec4 outColor;
+void main(){
+  vec3 n=normalize(vNormal);
+  float sun=max(dot(n,normalize(vec3(-0.65,1.35,0.55))),0.0);
+  float diffuse=0.57+0.43*sun;
+  float edge=0.04 * max(0.0,dot(n,normalize(vec3(0.0,1.0,0.0))));
+  vec3 col=vColor*(diffuse+edge);
+  if(uIsArchitecture>0.5 && abs(n.y)<0.35){
+    float floors=smoothstep(0.035,0.085,fract(vWorld.y / 5.2));
+    col*=mix(0.82,1.0,floors);
+    float win=step(0.29,fract((abs(n.x)>0.5?vWorld.z:vWorld.x)*0.22))*step(0.25,fract(vWorld.y*0.17));
+    col += win * vec3(0.038,0.048,0.045);
+  }
+  float d=length(vWorld.xz-uCamera.xz);
+  float fog=smoothstep(380.0,940.0,d)*0.28;
+  col=mix(col,vec3(0.27,0.34,0.37),fog);
+  outColor=vec4(col,1.0);
+}`;
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+function mat4Multiply(a,b) {
+  const out=new Float32Array(16);
+  for(let j=0;j<4;j++)for(let i=0;i<4;i++){
+    let v=0;for(let k=0;k<4;k++)v+=a[k*4+i]*b[j*4+k];
+    out[j*4+i]=v;
+  }
+  return out;
+}
+function perspective(fovy,aspect,near,far){
+  const f=1/Math.tan(fovy/2),o=new Float32Array(16);
+  o[0]=f/aspect;o[5]=f;o[10]=(far+near)/(near-far);o[11]=-1;o[14]=2*far*near/(near-far);
+  return o;
+}
+const sub=(a,b)=>a.map((x,i)=>x-b[i]);
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const normal=a=>{const l=Math.hypot(...a);return a.map(v=>v/(l||1));};
+function lookAt(eye,center,up){
+  const z=normal(sub(eye,center)),x=normal(cross(up,z)),y=cross(z,x);
+  return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dot(x,eye),-dot(y,eye),-dot(z,eye),1]);
+}
+// Inverse of 4x4 column-major matrix, Gauss-Jordan with row-oriented scratch buffers.
+function inverse4(m){
+  const a=Array.from({length:4},(_,r)=>Array.from({length:8},(_,c)=>c<4?m[c*4+r]:(c-4===r?1:0)));
+  for(let p=0;p<4;p++){
+    let pivot=p;for(let r=p+1;r<4;r++)if(Math.abs(a[r][p])>Math.abs(a[pivot][p]))pivot=r;
+    if(Math.abs(a[pivot][p])<1e-12)return null;
+    [a[p],a[pivot]]=[a[pivot],a[p]];
+    const factor=a[p][p];for(let c=0;c<8;c++)a[p][c]/=factor;
+    for(let r=0;r<4;r++)if(r!==p){const f=a[r][p];for(let c=0;c<8;c++)a[r][c]-=f*a[p][c];}
+  }
+  const out=new Float32Array(16);
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++)out[c*4+r]=a[r][4+c];
+  return out;
+}
+function transform(m,v){const a=[];for(let r=0;r<4;r++)a[r]=m[r]*v[0]+m[4+r]*v[1]+m[8+r]*v[2]+m[12+r]*v[3];return a.map((x,i)=>i<3?x/a[3]:a[3]);}
+
+function createBox(){
+  const result=[];
+  const faces=[
+    {n:[0,0,1],q:[[-.5,-.5,.5],[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5]]},
+    {n:[0,0,-1],q:[[.5,-.5,-.5],[-.5,-.5,-.5],[-.5,.5,-.5],[.5,.5,-.5]]},
+    {n:[1,0,0],q:[[.5,-.5,.5],[.5,-.5,-.5],[.5,.5,-.5],[.5,.5,.5]]},
+    {n:[-1,0,0],q:[[-.5,-.5,-.5],[-.5,-.5,.5],[-.5,.5,.5],[-.5,.5,-.5]]},
+    {n:[0,1,0],q:[[-.5,.5,.5],[.5,.5,.5],[.5,.5,-.5],[-.5,.5,-.5]]},
+    {n:[0,-1,0],q:[[-.5,-.5,-.5],[.5,-.5,-.5],[.5,-.5,.5],[-.5,-.5,.5]]}
+  ];
+  for(const f of faces)for(const i of [0,1,2,0,2,3])result.push(...f.q[i],...f.n);
+  return new Float32Array(result);
+}
+function createCylinder(sides=24,cone=false){
+  const result=[];
+  const push=(v,n)=>result.push(...v,...n);
+  for(let i=0;i<sides;i++){
+    const a=i/sides*Math.PI*2,b=(i+1)/sides*Math.PI*2;
+    const n1=[Math.sin(a),cone?0.38:0,Math.cos(a)],n2=[Math.sin(b),cone?0.38:0,Math.cos(b)];
+    const p1=[.5*Math.sin(a),-.5,.5*Math.cos(a)],p2=[.5*Math.sin(b),-.5,.5*Math.cos(b)];
+    if(cone){push(p1,n1);push(p2,n2);push([0,.5,0],normal([n1[0]+n2[0],.65,n1[2]+n2[2]]));}
+    else{
+      const t1=[p1[0],.5,p1[2]],t2=[p2[0],.5,p2[2]];
+      push(p1,n1);push(t2,n2);push(t1,n1);push(p1,n1);push(p2,n2);push(t2,n2);
+      push([0,.5,0],[0,1,0]);push(t1,[0,1,0]);push(t2,[0,1,0]);
+      push([0,-.5,0],[0,-1,0]);push(p2,[0,-1,0]);push(p1,[0,-1,0]);
+    }
+  }
+  return new Float32Array(result);
+}
+function rgb(hex){const h=hex.replace('#','');return [parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),16)/255,parseInt(h.slice(4,6),16)/255];}
+function instance(x,y,z,w,h,d,color,rot=0){return [x,y,z,w,h,d,...(Array.isArray(color)?color:rgb(color)),rot];}
+function mix(a,b,f){return a.map((x,i)=>x*(1-f)+b[i]*f);}
+const PALETTE=['#6e8a93','#93a4a1','#596c7b','#879294','#768997','#9caaa6','#506979'];
+class WorldRenderer {
+  constructor(canvas,{onSelect,onCameraChange}={}){
+    this.canvas=canvas;this.onSelect=onSelect;this.onCameraChange=onCameraChange;
+    const gl=canvas.getContext('webgl2',{alpha:true,antialias:true,depth:true,stencil:false,preserveDrawingBuffer:true});
+    if(!gl)throw Error('此浏览器不支持 WebGL2，无法运行 3D 视窗。');
+    this.gl=gl;this.scene=null;this.selected=null;this.meshes=[];
+    this.camera={azimuth:0.68,elevation:0.64,distance:680,target:[0,14,0]};
+    this.initProgram();this.initInput();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);
+    this.resize();this.running=true;this.loop();
+  }
+  initProgram(){
+    const gl=this.gl;
+    const compile=(kind,text)=>{const sh=gl.createShader(kind);gl.shaderSource(sh,text);gl.compileShader(sh);if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(sh));return sh;};
+    const p=gl.createProgram();gl.attachShader(p,compile(gl.VERTEX_SHADER,VS));gl.attachShader(p,compile(gl.FRAGMENT_SHADER,FS));gl.linkProgram(p);
+    if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(p));
+    this.program=p;this.uniforms={vp:gl.getUniformLocation(p,'uViewProjection'),camera:gl.getUniformLocation(p,'uCamera'),architect:gl.getUniformLocation(p,'uIsArchitecture')};
+    gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.disable(gl.CULL_FACE);
+    this.boxGeometry=createBox();this.cylinderGeometry=createCylinder();this.coneGeometry=createCylinder(7,true);
+  }
+  createMesh(geometry,instances,architecture=false){
+    if(!instances.length)return;
+    const gl=this.gl,vao=gl.createVertexArray();gl.bindVertexArray(vao);
+    const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,geometry,gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0);
+    gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,3,gl.FLOAT,false,24,12);
+    const ib=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,ib);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(instances.flat()),gl.STATIC_DRAW);
+    const stride=10*4;
+    for(const [loc,count,offset] of [[2,3,0],[3,3,12],[4,3,24],[5,1,36]]){
+      gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,count,gl.FLOAT,false,stride,offset);gl.vertexAttribDivisor(loc,1);
+    }
+    gl.bindVertexArray(null);
+    this.meshes.push({vao,vb,ib,count:instances.length,vertices:geometry.length/6,architecture});
+  }
+  updateScene(scene){
+    this.scene=scene;
+    const gl=this.gl;for(const m of this.meshes){gl.deleteVertexArray(m.vao);gl.deleteBuffer(m.vb);gl.deleteBuffer(m.ib);}this.meshes=[];
+    const s=scene.world.size;
+    this.createMesh(this.boxGeometry,[instance(0,-2.8,0,s+45,5.6,s+45,'#293a42'),instance(0,-5.7,0,s+56,2,s+56,'#19272f')]);
+    this.createMesh(this.boxGeometry,[instance(0,0.06,0,s,.12,s,'#4e5f61')]);
+    // subtle paving lines, used as a metric reference rather than a rigid street plan.
+    const grid=[];
+    for(let n=-s/2;n<=s/2;n+=20){
+      grid.push(instance(n,0.155,0,.20,.06,s,'#64736f'));
+      grid.push(instance(0,0.155,n,s,.06,.20,'#64736f'));
+    }
+    this.createMesh(this.boxGeometry,grid);
+    const plazaR=scene.world.plazaRadius;
+    this.createMesh(this.cylinderGeometry,[
+      instance(0,.29,0,plazaR*2.25,.24,plazaR*2.25,'#43635c'),
+      instance(0,.45,0,plazaR*1.80,.24,plazaR*1.80,'#7c8d83'),
+      instance(0,.58,0,plazaR*1.38,.18,plazaR*1.38,'#aab7ac'),
+      instance(0,.70,0,20,.45,20,'#657f7b'),
+      instance(0,1.04,0,13,.22,13,'#a8bfaf')
+    ]);
+    // A diagonal landscape corridor leading to the civic clearing.
+    this.createMesh(this.boxGeometry,[instance(-65,.32,-80,15,.21,172,'#82958a',-.33)]);
+    const bodies=[],tops=[],terraces=[],accents=[];
+    for(const b of scene.buildings){
+      const base=rgb(PALETTE[Math.floor(b.tone*PALETTE.length)]);
+      const color=b.id===this.selected?rgb('#e2bd7a'):base;
+      bodies.push(instance(b.x,b.height/2+.9,b.z,b.width,b.height,b.depth,color));
+      tops.push(instance(b.x,b.height+1.6,b.z,b.width+1.0,1.4,b.depth+1.0,mix(base,rgb('#e3ded0'),.22)));
+      if(b.type==='terraced')terraces.push(instance(b.x,b.height+4.4,b.z,b.width*.67,5.0,b.depth*.65,mix(base,rgb('#d2d9d2'),.24)));
+      if(b.type==='tower'&&b.height>43){
+        accents.push(instance(b.x,b.height+4.0,b.z,b.width*.16,4.5,b.depth*.16,'#baccc3'));
+      }
+    }
+    this.createMesh(this.boxGeometry,bodies,true);
+    this.createMesh(this.boxGeometry,tops);
+    this.createMesh(this.boxGeometry,terraces,true);
+    this.createMesh(this.boxGeometry,accents);
+    const trunks=[],foliage=[];
+    for(const t of scene.trees){
+      trunks.push(instance(t.x,t.height*.3+.6,t.z,.66,t.height*.6,.66,'#56685c'));
+      foliage.push(instance(t.x,t.height*.77+1.0,t.z,t.height*.84,t.height*.82,t.height*.84,'#618779'));
+    }
+    this.createMesh(this.boxGeometry,trunks);
+    this.createMesh(this.coneGeometry,foliage);
+  }
+  setSelected(id){this.selected=id;if(this.scene)this.updateScene(this.scene);}
+  eye(){const c=this.camera;return [c.target[0]+Math.sin(c.azimuth)*Math.cos(c.elevation)*c.distance,c.target[1]+Math.sin(c.elevation)*c.distance,c.target[2]+Math.cos(c.azimuth)*Math.cos(c.elevation)*c.distance];}
+  matrices(){const rect=this.canvas.getBoundingClientRect(),eye=this.eye();const proj=perspective(.77,Math.max(.25,rect.width/Math.max(1,rect.height)),1,3000);const view=lookAt(eye,this.camera.target,[0,1,0]);return {eye,vp:mat4Multiply(proj,view)};}
+  resize(){const dpr=Math.min(2,window.devicePixelRatio||1),w=Math.max(1,Math.floor(this.canvas.clientWidth*dpr)),h=Math.max(1,Math.floor(this.canvas.clientHeight*dpr));if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}this.gl.viewport(0,0,w,h);}
+  render(){
+    const gl=this.gl;this.resize();gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    if(!this.scene)return;
+    const {eye,vp}=this.matrices();gl.useProgram(this.program);gl.uniformMatrix4fv(this.uniforms.vp,false,vp);gl.uniform3fv(this.uniforms.camera,eye);
+    for(const m of this.meshes){gl.uniform1f(this.uniforms.architect,m.architecture?1:0);gl.bindVertexArray(m.vao);gl.drawArraysInstanced(gl.TRIANGLES,0,m.vertices,m.count);}
+    gl.bindVertexArray(null);
+  }
+  loop(){if(!this.running)return;this.render();requestAnimationFrame(()=>this.loop());}
+  zoom(delta){this.camera.distance=clamp(this.camera.distance*delta,110,1450);this.onCameraChange?.(this.camera);}
+  resetCamera(){this.camera={azimuth:.68,elevation:.64,distance:680,target:[0,14,0]};this.onCameraChange?.(this.camera);}
+  focus(building){if(!building)return;this.camera.target=[building.x,building.height*.35,building.z];this.camera.distance=clamp(this.camera.distance*.55,110,720);}
+  pick(x,y){
+    if(!this.scene)return null;
+    const {vp}=this.matrices(),inv=inverse4(vp);if(!inv)return null;
+    const rect=this.canvas.getBoundingClientRect(),nx=((x-rect.left)/rect.width)*2-1,ny=1-((y-rect.top)/rect.height)*2;
+    const a=transform(inv,[nx,ny,-1,1]),b=transform(inv,[nx,ny,1,1]);
+    const dir=normal(sub(b.slice(0,3),a.slice(0,3)));
+    let best=null,near=Infinity;
+    for(const building of this.scene.buildings){
+      const min=[building.x-building.width/2,.5,building.z-building.depth/2];
+      const max=[building.x+building.width/2,building.height+5,building.z+building.depth/2];
+      let tmin=0,tmax=10000;
+      for(let k=0;k<3;k++){
+        if(Math.abs(dir[k])<1e-10){if(a[k]<min[k]||a[k]>max[k]){tmin=Infinity;break;}continue;}
+        const t1=(min[k]-a[k])/dir[k],t2=(max[k]-a[k])/dir[k];
+        tmin=Math.max(tmin,Math.min(t1,t2));tmax=Math.min(tmax,Math.max(t1,t2));
+      }
+      if(tmax>=tmin&&tmin<near){near=tmin;best=building;}
+    }
+    return best;
+  }
+  initInput(){
+    const el=this.canvas;let start=null;
+    el.addEventListener('contextmenu',e=>e.preventDefault());
+    el.addEventListener('pointerdown',e=>{start={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,moved:false,button:e.button};el.setPointerCapture(e.pointerId);});
+    el.addEventListener('pointermove',e=>{
+      if(!start)return;
+      const dx=e.clientX-start.lastX,dy=e.clientY-start.lastY;
+      if(Math.hypot(e.clientX-start.x,e.clientY-start.y)>4)start.moved=true;
+      if(start.button===2||e.shiftKey){
+        const f=this.camera.distance*.0015;
+        this.camera.target[0]-=(dx*Math.cos(this.camera.azimuth)+dy*Math.sin(this.camera.azimuth))*f;
+        this.camera.target[2]+=(dx*Math.sin(this.camera.azimuth)-dy*Math.cos(this.camera.azimuth))*f;
+      }else{
+        this.camera.azimuth-=dx*.006;
+        this.camera.elevation=clamp(this.camera.elevation+dy*.005,.12,1.47);
+      }
+      start.lastX=e.clientX;start.lastY=e.clientY;
+    });
+    el.addEventListener('pointerup',e=>{if(start&&!start.moved&&start.button===0){const b=this.pick(e.clientX,e.clientY);this.onSelect?.(b?.id??null);}start=null;});
+    el.addEventListener('pointercancel',()=>{start=null;});
+    el.addEventListener('dblclick',e=>{const b=this.pick(e.clientX,e.clientY);if(b){this.onSelect?.(b.id);this.focus(b);}});
+    el.addEventListener('wheel',e=>{e.preventDefault();this.zoom(Math.exp(Math.sign(e.deltaY)*.10));},{passive:false});
+  }
+  dispose(){this.running=false;this.resizeObserver?.disconnect();}
+}
+
+/** Software 3D renderer with perspective projection, used when WebGL2 is unavailable. */
+class CanvasFallbackRenderer {
+  constructor(canvas,{onSelect,onCameraChange}={}){
+    this.canvas=canvas;this.onSelect=onSelect;this.onCameraChange=onCameraChange;
+    const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('当前浏览器无法创建 2D/3D Canvas 上下文。');
+    this.ctx=ctx;this.camera={azimuth:.68,elevation:.64,distance:680,target:[0,14,0]};
+    this.scene=null;this.selected=null;this.running=true;
+    this.initInput();this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas);this.resize();this.loop();
+  }
+  resize(){const dpr=Math.min(window.devicePixelRatio||1,2),w=Math.max(1,Math.round(this.canvas.clientWidth*dpr)),h=Math.max(1,Math.round(this.canvas.clientHeight*dpr));if(this.canvas.width!==w||this.canvas.height!==h){this.canvas.width=w;this.canvas.height=h;}this.w=w;this.h=h;}
+  updateScene(scene){this.scene=scene;}
+  setSelected(id){this.selected=id;}
+  project(p,vp){
+    const a=transform(vp,[p[0],p[1],p[2],1]);
+    if(!Number.isFinite(a[0])||!Number.isFinite(a[1]))return null;
+    return [(a[0]*.5+.5)*this.w,(-a[1]*.5+.5)*this.h];
+  }
+  polygon(points,color,stroke=null){
+    const ctx=this.ctx;if(points.some(p=>!p))return;
+    ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle=color;ctx.fill();
+    if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.7;ctx.stroke();}
+  }
+  line(points,color,width=1){const ctx=this.ctx;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();}
+  drawBuilding(b,vp,eye){
+    const ctx=this.ctx;
+    const x=b.x,z=b.z,w=b.width/2,d=b.depth/2,h=b.height+.9;
+    const px=(X,Y,Z)=>this.project([X,Y,Z],vp);
+    const A=px(x-w,.3,z-d),B=px(x+w,.3,z-d),C=px(x+w,.3,z+d),D=px(x-w,.3,z+d);
+    const E=px(x-w,h,z-d),F=px(x+w,h,z-d),G=px(x+w,h,z+d),H=px(x-w,h,z+d);
+    if([A,B,C,D,E,F,G,H].some(q=>!q))return;
+    const base=PALETTE[Math.floor(b.tone*PALETTE.length)];
+    const color=b.id===this.selected?'#ddbb79':base;
+    const brighten=(hex,delta)=>{
+      const raw=hex.replace('#','');const cols=[0,2,4].map(p=>parseInt(raw.slice(p,p+2),16));
+      return '#'+cols.map(c=>Math.max(0,Math.min(255,Math.round(c*delta))).toString(16).padStart(2,'0')).join('');
+    };
+    // Bottom / walls / roof. Choose visible side walls according to camera position.
+    if(eye[2]<z)this.polygon([A,B,F,E],brighten(color,.79),'#1f353d65');
+    if(eye[2]>=z)this.polygon([D,C,G,H],brighten(color,.87),'#1f353d65');
+    if(eye[0]<x)this.polygon([A,D,H,E],brighten(color,.66),'#1f353d65');
+    if(eye[0]>=x)this.polygon([B,C,G,F],brighten(color,.70),'#1f353d65');
+    this.polygon([E,F,G,H],brighten(color,1.18),'#bdc9bd18');
+    // Lightweight facade floor bands: only on visible faces.
+    if(h>20){
+      const count=Math.floor(h/8);
+      ctx.lineWidth=.7;
+      for(let i=1;i<count;i++){
+        const ht=h*i/count;
+        if(eye[2]<z)this.line([px(x-w,ht,z-d),px(x+w,ht,z-d)],'#d6e3dd24',.7);
+        else this.line([px(x-w,ht,z+d),px(x+w,ht,z+d)],'#d6e3dd24',.7);
+        if(eye[0]<x)this.line([px(x-w,ht,z-d),px(x-w,ht,z+d)],'#d6e3dd1e',.7);
+        else this.line([px(x+w,ht,z-d),px(x+w,ht,z+d)],'#d6e3dd1e',.7);
+      }
+    }
+    if(b.type==='terraced'){
+      const w2=w*.68,d2=d*.66;
+      this.polygon([px(x-w2,h+4,z-d2),px(x+w2,h+4,z-d2),px(x+w2,h+4,z+d2),px(x-w2,h+4,z+d2)],'#b7c9bc');
+    }
+    if(b.id===this.selected){ctx.lineWidth=2;this.polygon([E,F,G,H],'#dfbe8333','#f1ca83');}
+  }
+  drawTree(t,vp){
+    const p=(x,y,z)=>this.project([x,y,z],vp);
+    const a=p(t.x-1,t.height*.55,t.z),b=p(t.x+1,t.height*.55,t.z),c=p(t.x,t.height*1.6,t.z),d=p(t.x,t.height*.55,t.z+2);
+    this.polygon([a,b,c],'#648d7b');this.polygon([b,d,c],'#446e61');
+  }
+  render(){
+    const ctx=this.ctx;this.resize();const w=this.w,h=this.h;
+    const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,'#394d55');bg.addColorStop(.6,'#273b44');bg.addColorStop(1,'#172b31');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+    if(!this.scene)return;
+    const {eye,vp}=this.matrices(),world=this.scene.world;
+    const p=(x,y,z)=>this.project([x,y,z],vp);
+    const s=world.size/2;
+    this.polygon([p(-s-28,-4,-s-28),p(s+28,-4,-s-28),p(s+28,-4,s+28),p(-s-28,-4,s+28)],'#182831');
+    this.polygon([p(-s,0,-s),p(s,0,-s),p(s,0,s),p(-s,0,s)],'#425759','#708382');
+    for(let v=-s;v<=s;v+=20){
+      this.line([p(v,.2,-s),p(v,.2,s)],'#7d95883b',.9);
+      this.line([p(-s,.2,v),p(s,.2,v)],'#7d95883b',.9);
+    }
+    const circle=(radius,y)=>Array.from({length:56},(_,i)=>p(Math.cos(i/56*Math.PI*2)*radius,y,Math.sin(i/56*Math.PI*2)*radius));
+    this.polygon(circle(world.plazaRadius*1.13,.3),'#496c60');
+    this.polygon(circle(world.plazaRadius*.91,.4),'#879b8d');
+    this.polygon(circle(world.plazaRadius*.70,.6),'#a4b6a7');
+    this.polygon(circle(10,.85),'#5e877a');
+    // Draw individual solids back to front, preserving depth cues in 2D fallback.
+    const items=[...this.scene.buildings.map(q=>({kind:'building',value:q,x:q.x,z:q.z})),...this.scene.trees.map(q=>({kind:'tree',value:q,x:q.x,z:q.z}))];
+    items.sort((a,b)=>Math.hypot(b.x-eye[0],b.z-eye[2])-Math.hypot(a.x-eye[0],a.z-eye[2]));
+    for(const item of items){if(item.kind==='building')this.drawBuilding(item.value,vp,eye);else this.drawTree(item.value,vp);}
+    const gradient=ctx.createLinearGradient(0,0,0,h);gradient.addColorStop(0,'#16252b00');gradient.addColorStop(1,'#15292c22');ctx.fillStyle=gradient;ctx.fillRect(0,0,w,h);
+  }
+  loop(){if(!this.running)return;this.render();requestAnimationFrame(()=>this.loop());}
+  dispose(){this.running=false;this.resizeObserver?.disconnect();}
+}
+for(const method of ['eye','matrices','zoom','resetCamera','focus','pick','initInput']){
+  CanvasFallbackRenderer.prototype[method]=WorldRenderer.prototype[method];
+}
+
+return { WorldRenderer, CanvasFallbackRenderer };
+})();
+(()=>{
+const {DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport} = __pcg;
+const {WorldRenderer,CanvasFallbackRenderer} = __renderer;
+
+
+const $=id=>document.getElementById(id);
+const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct=n=>`${Math.round(n*100)}%`;
+const fmt=(n,d=0)=>Number(n).toLocaleString('zh-CN',{maximumFractionDigits:d,minimumFractionDigits:d});
+const shortTime=()=>new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
+const storeKey='worldcraft-v0.1-session';
+const demoPrompts=[
+  '生成一座 400×400m 的未来城市，中心高外围低，保留中央开放空间',
+  '将东侧建筑密度降低 30%，其他区域不变',
+  '整体建筑高度提高 20%',
+  '扩大中央开放空间 20%'
+];
+const pipelineNames=['Seed / 随机种子','Grid / 基础地块','Reserve / 开放空间','Density / 分布规则','Height / 高度场','Instances / 三维实例'];
+let persisted;
+try{persisted=JSON.parse(localStorage.getItem(storeKey)||'null');}catch(_){persisted=null;}
+let initialWorld;
+try{initialWorld=validateWorld(persisted?.world ?? {...DEFAULT_WORLD});}catch(_){initialWorld={...DEFAULT_WORLD};}
+let initialBaseline;
+try{initialBaseline=validateWorld(persisted?.baseline ?? {...DEFAULT_WORLD});}catch(_){initialBaseline={...DEFAULT_WORLD};}
+const state={
+  world:initialWorld,
+  baseline:initialBaseline,
+  scene:generateCity(initialWorld),
+  baselineScene:generateCity(initialBaseline),
+  past:[],future:[],
+  selectedId:null,
+  allBuildings:false,
+  logs:[{description:'载入程序化城市场景',time:shortTime()}]
+};
+let renderer;
+let toastHandle;
+function toast(message){const el=$('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastHandle);toastHandle=setTimeout(()=>el.classList.remove('show'),2700);}
+function feedback(message,error=false){const area=$('command-feedback');area.classList.toggle('error',!!error);area.querySelector('.feedback-icon').textContent=error?'!':'✓';area.querySelector('span:last-child').textContent=message;}
+function log(description){state.logs.unshift({description,time:shortTime()});state.logs=state.logs.slice(0,25);}
+function persist(){try{localStorage.setItem(storeKey,JSON.stringify({world:state.world,baseline:state.baseline}));}catch(_){}}
+function refreshAll(rebuild=true){
+  state.scene=generateCity(state.world);
+  if(state.selectedId&&!state.scene.buildings.find(b=>b.id===state.selectedId))state.selectedId=null;
+  if(rebuild&&renderer){renderer.selected=state.selectedId;renderer.updateScene(state.scene);}
+  $('project-name').textContent=state.world.name;
+  $('world-caption').textContent=`${state.world.size} × ${state.world.size} M / FUTURE CITY`;
+  $('seed-footnote').textContent=`SEED #${state.world.seed}`;
+  $('mesh-count').textContent=fmt(state.scene.metrics.total);
+  renderMetrics();renderTree();renderRules();renderSelection();renderComparison();renderHistory();renderButtons();persist();
+}
+function commit(description,world,{resetBaseline=false}={}){
+  const next=validateWorld(world);
+  if(JSON.stringify(next)===JSON.stringify(state.world)){
+    feedback('世界规则没有变化。',true);return false;
+  }
+  state.past.push({world:{...state.world},description});
+  state.past=state.past.slice(-50);state.future=[];
+  state.world=next;
+  if(resetBaseline){state.baseline={...next};state.baselineScene=generateCity(next);}
+  log(description);refreshAll();feedback(`已执行：${description}。场景已按规则重新计算。`);
+  return true;
+}
+function setParameter(key,value,label){
+  const result=applyCommand(state.world,{type:'set',key,value,description:label});
+  if(!result.ok){feedback(result.error,true);return;}
+  commit(label,result.world);
+}
+function runInstruction(text){
+  const command=parseCommand(text);
+  const result=applyCommand(state.world,command);
+  if(!result.ok){feedback(result.error,true);toast('无法执行：请调整指令');return;}
+  commit(result.description,result.world,{resetBaseline:command.type==='generate'});
+  $('command-input').value='';
+}
+function undo(){
+  if(!state.past.length)return;
+  const item=state.past.pop();state.future.push({world:{...state.world},description:item.description});
+  state.world=item.world;log(`撤销：${item.description}`);refreshAll();feedback(`已撤销：${item.description}`);
+}
+function redo(){
+  if(!state.future.length)return;
+  const item=state.future.pop();state.past.push({world:{...state.world},description:item.description});
+  state.world=item.world;log(`重做：${item.description}`);refreshAll();feedback(`已重做：${item.description}`);
+}
+function renderButtons(){ $('undo-btn').disabled=state.past.length===0;$('redo-btn').disabled=state.future.length===0; }
+function renderMetrics(){
+  const m=state.scene.metrics;
+  const content=[
+    ['BUILDINGS',fmt(m.total),'栋'],['AVG. HEIGHT',fmt(m.avgHeight,1),'m'],['SITE COVERAGE',pct(m.coverage),''],['PUBLIC PLAZA',fmt(m.plazaArea),'m²']
+  ];
+  $('metric-strip').innerHTML=content.map(([label,v,unit])=>`<div class="metric"><label>${label}</label><div class="metric-value">${v} <small>${unit}</small></div></div>`).join('');
+}
+function renderTree(){
+  const m=state.scene.metrics;
+  let buildings=state.scene.buildings;
+  if(!state.allBuildings){buildings=buildings.slice(0,10);const picked=state.scene.buildings.find(b=>b.id===state.selectedId);if(picked&&!buildings.includes(picked))buildings.unshift(picked);}
+  $('scene-tree').innerHTML=`
+    <div class="tree-heading">WORLD <span class="small-label">LIVE</span></div>
+    <button class="tree-item selected" data-action="reset-camera"><span class="node-icon">◈</span><span>${escapeHTML(state.world.name)}</span></button>
+    <button class="tree-item indent" data-action="reset-camera"><span class="node-icon gray">▱</span><span>Terrain / ${state.world.size}m</span></button>
+    <div class="tree-heading">DISTRICTS <span class="small-label">02</span></div>
+    <button class="tree-item indent" data-action="focus-region" data-region="east"><span class="node-icon">▥</span>East District <span class="node-count">${m.east}</span></button>
+    <button class="tree-item indent" data-action="focus-region" data-region="west"><span class="node-icon">▥</span>West District <span class="node-count">${m.west}</span></button>
+    <div class="tree-heading">SCENE OBJECTS <span class="small-label">${m.total}</span></div>
+    ${buildings.map(b=>`<button class="tree-item small-indent bld ${b.id===state.selectedId?'selected':''}" data-select="${b.id}"><span class="node-icon gray">▣</span><span>${b.id}</span><span class="secondary">${fmt(b.height)}m</span></button>`).join('')}
+    <button class="tree-more" id="expand-buildings">${state.allBuildings?'收起对象列表':'查看全部 '+m.total+' 个建筑对象'} ${state.allBuildings?'↑':'↓'}</button>
+  `;
+  $('scene-tree').querySelectorAll('[data-select]').forEach(btn=>btn.addEventListener('click',()=>selectBuilding(btn.dataset.select,true)));
+  $('scene-tree').querySelectorAll('[data-action="reset-camera"]').forEach(btn=>btn.addEventListener('click',()=>renderer?.resetCamera()));
+  $('scene-tree').querySelectorAll('[data-action="focus-region"]').forEach(btn=>btn.addEventListener('click',()=>{
+    if(!renderer)return;
+    renderer.camera.target=[btn.dataset.region==='east'?state.world.size*.23:-state.world.size*.23,15,0];renderer.camera.distance=Math.max(190,state.world.size*.8);
+  }));
+  $('expand-buildings').addEventListener('click',()=>{state.allBuildings=!state.allBuildings;renderTree();});
+}
+function renderPipeline(){
+  $('pipeline').innerHTML=pipelineNames.map((n,i)=>`<div class="pipeline-step"><span class="num">${String(i+1).padStart(2,'0')}</span><span>${n}</span><span class="line"></span></div>`).join('');
+}
+function ruleControl(name,label,value,step,min,max,unit,track=1,description=''){
+  const suffix=unit==='%'?pct(value):unit==='m'?`${fmt(value)}m`:unit==='×'?`${fmt(value,2)}×`:fmt(value);
+  const bar=Math.max(0,Math.min(100,value/track*100));
+  return `<div class="setting"><div><div class="setting-label">${label}</div>${description?`<span class="detail">${description}</span>`:''}</div><div class="setting-control"><button class="increment" type="button" data-rule="${name}" data-diff="-${step}" aria-label="降低${label}">−</button><span class="setting-value">${suffix}</span><button class="increment" type="button" data-rule="${name}" data-diff="${step}" aria-label="提高${label}">+</button></div></div><div class="rule-track"><span style="width:${bar}%"></span></div>`;
+}
+function bindRules(){
+  document.querySelectorAll('[data-rule]').forEach(button=>button.addEventListener('click',()=>{
+    const key=button.dataset.rule,step=Number(button.dataset.diff);
+    const min=key.endsWith('Density')?0:key==='heightScale'?.2:20;
+    const max=key.endsWith('Density')?1:key==='heightScale'?3:Math.min(state.world.size/2-15,160);
+    const value=Math.round(Math.max(min,Math.min(max,state.world[key]+step))*1000)/1000;
+    const names={eastDensity:'东侧建筑密度',westDensity:'西侧建筑密度',heightScale:'整体建筑高度倍率',plazaRadius:'中央开放空间半径'};
+    setParameter(key,value,`${names[key]}调整为 ${key.endsWith('Density')?pct(value):key==='heightScale'?fmt(value,2)+'×':value+'m'}`);
+  }));
+}
+function renderRules(){
+  const w=state.world;
+  $('global-rules').innerHTML=`<div class="setting inline"><span class="setting-label">场景面积</span><span class="pill">${w.size} × ${w.size}m</span></div><div class="setting inline"><span class="setting-label">随机种子</span><div class="setting-control"><span class="setting-value">#${w.seed}</span><button class="increment" id="reroll-seed" title="重新抽取布局随机种子">↻</button></div></div>${ruleControl('heightScale','高度倍率',w.heightScale,.1,.2,3,'×',3,'全城高度梯度')}${ruleControl('plazaRadius','中央开放空间半径',w.plazaRadius,10,20,160,'m',160)}`;
+  $('district-rules').innerHTML=`${ruleControl('eastDensity','东侧建筑密度',w.eastDensity,.05,0,1,'%',1,'基于确定性候选网格')}${ruleControl('westDensity','西侧建筑密度',w.westDensity,.05,0,1,'%',1,'不受东侧编辑影响')}`;
+  $('reroll-seed').addEventListener('click',()=>setParameter('seed',state.world.seed+1,`重新抽取随机种子 #${state.world.seed+1}`));
+  bindRules();
+}
+function selectBuilding(id,focus=false){
+  state.selectedId=id;
+  if(renderer){renderer.setSelected(id);if(focus&&id){const b=state.scene.buildings.find(q=>q.id===id);renderer.focus(b);}}
+  renderTree();renderSelection();
+}
+function renderSelection(){
+  const b=state.scene.buildings.find(b=>b.id===state.selectedId);
+  if(!b){ $('object-inspector').innerHTML='<p class="muted-text">点击三维视窗中的任意建筑，查看它的稳定 ID、位置、高度和所属分区。</p>';$('selection-callout').hidden=true;return; }
+  $('object-inspector').innerHTML=`<div class="object-card"><div class="object-title">▣ ${b.id}</div><div class="object-data"><div><span>分区</span><strong>${b.region}</strong></div><div><span>结构类型</span><strong>${b.type}</strong></div><div><span>高度</span><strong>${fmt(b.height,1)} m</strong></div><div><span>基底面积</span><strong>${fmt(b.footprint,1)} m²</strong></div><div><span>X / Z</span><strong>${fmt(b.x,1)} / ${fmt(b.z,1)}</strong></div><div><span>实例 ID</span><strong>${b.id}</strong></div></div></div>`;
+  $('selection-callout').hidden=false;
+  $('selection-callout').innerHTML=`<strong>${b.id}</strong>${b.region} · ${fmt(b.height,1)}m<br>点击其他建筑切换选择`;
+}
+function renderComparison(){
+  const b=state.baselineScene.metrics,c=state.scene.metrics;
+  const d=(value,after,unit='')=>{const diff=after-value,sign=diff>0?'+':'';return `<strong class="${diff<0?'negative':diff>0?'positive':''}">${sign}${fmt(diff,unit==='%'?1:0)}${unit}</strong>`;};
+  const pctChange=(before,after)=>before===0?0:(after-before)/before*100;
+  $('comparison').innerHTML=`
+    <div class="delta-row"><span>总建筑数量</span><span>${fmt(b.total)} → ${fmt(c.total)} &nbsp; ${d(b.total,c.total)}</span></div>
+    <div class="tiny-progress"><span style="width:${Math.min(c.total/Math.max(1,b.total)*75,100)}%"></span></div>
+    <div class="delta-row"><span>东侧建筑数量</span><span>${fmt(b.east)} → ${fmt(c.east)} &nbsp; ${d(b.east,c.east)}</span></div>
+    <div class="tiny-progress"><span style="width:${Math.min(c.east/Math.max(1,b.east)*75,100)}%"></span></div>
+    <div class="delta-row"><span>平均建筑高度</span><span>${fmt(b.avgHeight,1)} → ${fmt(c.avgHeight,1)}m</span></div>
+    <div class="delta-row"><span>平均高度变化</span><strong class="${pctChange(b.avgHeight,c.avgHeight)<0?'negative':'positive'}">${pctChange(b.avgHeight,c.avgHeight)>=0?'+':''}${fmt(pctChange(b.avgHeight,c.avgHeight),1)}%</strong></div>
+    <div class="delta-row"><span>建筑变化</span><strong>${compareScenes(state.baselineScene,state.scene).removed} 删除 · ${compareScenes(state.baselineScene,state.scene).modified} 修改</strong></div>
+    <p class="muted-text">对照基线: ${escapeHTML(state.baseline.name)} · Seed #${state.baseline.seed}</p>`;
+}
+function renderHistory(){
+  $('history-list').innerHTML=state.logs.slice(0,5).map(l=>`<div class="history-row"><span>${escapeHTML(l.time)}</span><strong>${escapeHTML(l.description)}</strong></div>`).join('');
+}
+function downloadScene(){
+  const data=JSON.stringify(makeExport(state.world,state.logs),null,2);
+  const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download=`worldcraft-scene-seed-${state.world.seed}.json`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('已导出结构化场景 JSON');
+}
+async function importScene(file){
+  if(!file)return;
+  try{
+    if(file.size>2_000_000)throw new Error('场景文件过大');
+    const doc=JSON.parse(await file.text());
+    const world=readExport(doc);
+    if(JSON.stringify(world)===JSON.stringify(state.world)){
+      toast('场景已是当前版本');return;
+    }
+    commit('导入场景 '+file.name,world,{resetBaseline:true});
+    toast('场景导入成功');
+  }catch(error){feedback(`导入失败：${error.message}`,true);toast('场景文件无效');}
+}
+function wireEvents(){
+  $('command-form').addEventListener('submit',e=>{e.preventDefault();runInstruction($('command-input').value);});
+  $('command-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('command-form').requestSubmit();}});
+  $('prompt-examples').innerHTML=demoPrompts.map((p,i)=>`<button class="prompt-chip" type="button" data-example="${i}">${['生成示例城市','东侧密度 −30%','整体高度 +20%','开放空间 +20%'][i]}</button>`).join('');
+  $('prompt-examples').querySelectorAll('[data-example]').forEach(btn=>btn.addEventListener('click',()=>{const value=demoPrompts[Number(btn.dataset.example)];$('command-input').value=value;runInstruction(value);}));
+  $('undo-btn').addEventListener('click',undo);$('redo-btn').addEventListener('click',redo);
+  $('camera-reset').addEventListener('click',()=>renderer?.resetCamera());
+  $('zoom-in').addEventListener('click',()=>renderer?.zoom(.8));$('zoom-out').addEventListener('click',()=>renderer?.zoom(1.25));
+  $('export-btn').addEventListener('click',downloadScene);
+  $('import-btn').addEventListener('click',()=>$('import-file').click());
+  $('import-file').addEventListener('change',async e=>{await importScene(e.target.files?.[0]);e.target.value='';});
+  $('set-baseline').addEventListener('click',()=>{state.baseline={...state.world};state.baselineScene=generateCity(state.baseline);persist();renderComparison();toast('已将当前世界设为新的比较基线');});
+  window.addEventListener('keydown',e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){
+      e.preventDefault();if(e.shiftKey)redo();else undo();
+    }
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();}
+    if(e.key==='Escape'&&document.activeElement!==$('command-input'))selectBuilding(null);
+  });
+}
+function initialize(){
+  renderPipeline();wireEvents();
+  try{
+    renderer=new WorldRenderer($('world-canvas'),{onSelect:id=>selectBuilding(id)});
+  }catch(err){try{renderer=new CanvasFallbackRenderer($('world-canvas'),{onSelect:id=>selectBuilding(id)});feedback('此环境禁用 WebGL2，已自动切换到软件三维预览。');}catch(fallbackError){$('viewer-error').hidden=false;$('viewer-error').textContent=`3D 视窗启动失败：${fallbackError.message}`;feedback(`浏览器图形接口不可用：${fallbackError.message}`,true);}}
+  refreshAll();
+}
+initialize();
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+from playwright.sync_api import sync_playwright
+from pathlib import Path
+import json
+root=Path(__file__).resolve().parents[1]
+with sync_playwright() as p:
+    browser=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox','--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--disable-web-security','--disable-gpu-sandbox'])
+    page=browser.new_page(viewport={'width':1500,'height':960},device_scale_factor=1)
+    console=[]
+    page.on('console',lambda msg: console.append(f'{msg.type}: {msg.text}') if msg.type=='error' else None)
+    page.on('pageerror',lambda e: console.append(str(e)))
+    page.set_content((root/'worldcraft.html').read_text(encoding='utf-8'),wait_until='load')
+    page.wait_for_timeout(2000)
+    print('title',page.title())
+    print('canvas',page.locator('#world-canvas').evaluate('(e)=>({width:e.width,height:e.height,hasWebGL:!!e.getContext("webgl2")})'))
+    print('errors',console)
+    print('initial metrics',page.locator('#metric-strip').inner_text())
+    print('error box',page.locator('#viewer-error').is_visible())
+    page.screenshot(path=str(root/'preview-initial.png'),full_page=True)
+    before=page.locator('#metric-strip').inner_text()
+    page.get_by_text('东侧密度 −30%',exact=True).click()
+    page.wait_for_timeout(750)
+    after=page.locator('#metric-strip').inner_text()
+    print('after metrics',after)
+    print('feedback',page.locator('#command-feedback').inner_text())
+    print('undo',page.locator('#undo-btn').is_enabled())
+    page.screenshot(path=str(root/'preview-modified.png'),full_page=True)
+    page.locator('#undo-btn').click()
+    page.wait_for_timeout(250)
+    restored=page.locator('#metric-strip').inner_text()
+    print('undo_restores',before==restored)
+    page.locator('#redo-btn').click()
+    print('redo_matches',page.locator('#metric-strip').inner_text()==after)
+    page.locator('#command-input').fill('整体建筑高度提高 20%')
+    page.locator('#command-form button[type="submit"]').click()
+    page.wait_for_timeout(350)
+    print('natural language feedback',page.locator('#command-feedback').inner_text())
+    print('final errors',console)
+    browser.close()
