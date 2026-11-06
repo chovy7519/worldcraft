@@ -74,7 +74,7 @@ test('natural language parameter changes update actual road/parcel/park/tree gen
 test('legacy version 1 world saves migrate with default spatial params',()=>{
   const old={schemaVersion:1,size:400,seed:42,name:'Legacy World',eastDensity:.8,westDensity:.8,heightScale:1,plazaRadius:60,promenadeWidth:10.5,style:'future'};
   const migrated=validateWorld(old);
-  assert.equal(migrated.schemaVersion,3);
+  assert.equal(migrated.schemaVersion,4);
   assert.equal(migrated.diagonalWidth,0,'legacy cities preserve rectilinear road layout');
   assert.equal(migrated.roadSpacing,DEFAULT_WORLD.roadSpacing);
   const currentDoc=makeExport(DEFAULT_WORLD);

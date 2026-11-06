@@ -52,12 +52,26 @@
         </div>
         <div class="metric-strip" id="metric-strip"></div>
         <section class="logic-dock">
-          <div class="dock-topbar"><div class="dock-tabs"><button type="button" class="dock-tab active" data-dock="graph">◈ PCG Graph</button><button type="button" class="dock-tab" data-dock="command">✦ 自然语言指令</button></div><div class="graph-badge" id="graph-status">检查生成链…</div></div>
+          <div class="dock-topbar"><div class="dock-tabs"><button type="button" class="dock-tab active" data-dock="graph">◈ PCG Graph</button><button type="button" class="dock-tab" data-dock="roads">⌁ 道路编辑器</button><button type="button" class="dock-tab" data-dock="command">✦ 自然语言指令</button></div><div class="graph-badge" id="graph-status">检查生成链…</div></div>
           <div class="graph-pane" id="graph-pane">
             <div class="graph-toolbar"><span>拖动节点布局 · 点击输出端口再点击输入端口以重连 · 断开的模块不参与生成</span><div class="graph-actions"><select id="graph-add-type" aria-label="选择要添加的模块"><option value="">添加模块…</option></select><button type="button" id="graph-add-btn" class="graph-action">＋ 添加</button><button type="button" id="graph-reset-btn" class="graph-action">恢复默认连接</button></div></div>
             <div class="graph-scroll" id="graph-scroll"><div class="graph-board" id="graph-board"><svg id="graph-wires" width="1440" height="260" viewBox="0 0 1440 260" aria-hidden="true"></svg><div id="graph-nodes"></div></div></div>
             <div class="graph-footer"><span id="graph-hint">点击节点查看规则 · 拖动标题调整布局</span><span id="graph-count">12 MODULES</span></div>
           </div>
+          <section class="road-pane" id="road-pane" hidden aria-label="道路网络编辑器">
+            <div class="road-tools">
+              <span id="road-editor-badge">AUTO ROAD GRAPH</span>
+              <button type="button" id="road-enable">转为可编辑道路网络</button>
+              <button type="button" id="road-reset" disabled>还原自动路网</button>
+              <button type="button" id="road-split" disabled>拆分选中路段</button>
+              <button type="button" id="road-branch" disabled>新建支路</button>
+              <button type="button" id="road-delete" disabled>删除中间节点</button>
+            </div>
+            <div class="road-workspace">
+              <div class="road-map-wrap"><svg id="road-map" role="img" aria-label="二维道路拓扑与地块编辑平面图"></svg></div>
+              <div class="road-info" id="road-info">选择一条道路或路口。开启编辑后可拖拽节点，或添加支路。</div>
+            </div>
+          </section>
           <section class="command-console" id="command-pane" hidden>
           <div class="console-header"><div><span class="sparkle">✦</span><strong>World Command</strong><span class="console-kicker">用自然语言修改生成规则</span></div><span class="engine-badge">规则解析 · 离线</span></div>
           <form id="command-form" class="command-form"><textarea id="command-input" rows="2" placeholder="例如：斜路角度设为 35 度；斜路宽度设为 12m" spellcheck="false"></textarea><button class="send-btn" type="submit" id="send-btn" title="执行指令">↗</button></form>

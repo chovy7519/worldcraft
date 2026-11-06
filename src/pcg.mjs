@@ -1,6 +1,7 @@
 /** WorldCraft V0.3 — stable city rules, deterministic spatial pipeline. */
 import {generateSpatialCity} from './spatial.mjs';
-export const SCHEMA_VERSION = 3;
+import {normalizeRoadNetwork} from './road-network.mjs';
+export const SCHEMA_VERSION = 4;
 export const DEFAULT_WORLD = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
   name: 'Coastal Future City',
@@ -16,6 +17,7 @@ export const DEFAULT_WORLD = Object.freeze({
   diagonalWidth: 12,
   diagonalAngle: 35,
   diagonalOffset: 0,
+  roadNetwork: null,
   parcelTargetWidth: 42,
   parkShare: 0.20,
   parkSmallMaxArea: 1500,
@@ -44,7 +46,7 @@ export function randomFor(seed, x, z, channel = 0) {
 
 export function validateWorld(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('无效的世界文件');
-  if (![1,2,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
+  if (![1,2,3,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
   const world = {};
   for (const key of Object.keys(DEFAULT_WORLD)) {
     world[key] = key==='schemaVersion' ? SCHEMA_VERSION : (input.schemaVersion<3 && key==='diagonalWidth' ? 0 : (input[key] ?? DEFAULT_WORLD[key]));
@@ -59,6 +61,7 @@ export function validateWorld(input) {
   if (world.plazaRadius < 20 || world.plazaRadius > Math.min(world.size/2-15,160)) throw new Error('中央开放空间半径不在允许范围内');
   if(!world.extensions||typeof world.extensions!=='object'||Array.isArray(world.extensions)||Object.keys(world.extensions).some(k=>!['terrain','hydrology'].includes(k))||world.extensions.terrain!=null||world.extensions.hydrology!=null)throw Error('地形 / 水系扩展接口已预留，但本版本尚不接受扩展数据');
   world.extensions={terrain:null,hydrology:null};
+  world.roadNetwork=normalizeRoadNetwork(input.schemaVersion>=4?world.roadNetwork:null,world.size);
   if (typeof world.name !== 'string' || world.name.length > 120) throw new Error('世界名称无效');
   if(!Number.isInteger(world.roadSpacing)||world.roadSpacing<60||world.roadSpacing>160||world.roadSpacing%20!==0)throw Error('道路间距须在 60–160m，且为 20m 的倍数');
   if(world.roadWidth<6||world.roadWidth>22||world.roadWidth>=world.roadSpacing/3)throw Error('道路宽度须为 6–22m 且小于道路间距的三分之一');
@@ -213,6 +216,6 @@ export function makeExport(world,history=[]) {
 }
 
 export function readExport(doc) {
-  if(!doc||doc.format!=='WorldCraft'||![1,2,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
+  if(!doc||doc.format!=='WorldCraft'||![1,2,3,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
   return validateWorld(doc.world);
 }

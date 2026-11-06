@@ -35,7 +35,7 @@ test('removing diagonal road restores legacy rectangular geometry without changi
   assert.ok(validateSpatialInvariants(s).valid);
   const old={...DEFAULT_WORLD,schemaVersion:2};delete old.diagonalAngle;delete old.diagonalWidth;delete old.diagonalOffset;
   const converted=validateWorld(old);
-  assert.equal(converted.schemaVersion,3);
+  assert.equal(converted.schemaVersion,4);
   assert.equal(converted.diagonalWidth,0);
   assert.equal(readExport({format:'WorldCraft',version:2,world:old}).diagonalWidth,0);
 });

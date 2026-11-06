@@ -73,6 +73,29 @@
 .graph-board{width:2440px}.graph-scroll{scroll-behavior:smooth}
 @media(max-width:1150px){.metric .metric-value{font-size:14px}.metric{padding:2px 5px}.sidebar-bottom{max-height:240px}}
 
+/* V0.5: first-class editable spatial road graph — plan coordinates are metres. */
+.road-pane{display:flex;flex:1;min-height:0;flex-direction:column;background:#142126}
+.road-pane[hidden]{display:none!important}
+.road-tools{display:flex;align-items:center;gap:7px;padding:8px 12px;border-bottom:1px solid #3a4d50;flex-wrap:wrap}
+.road-tools>span{font-size:10px;letter-spacing:.07em;color:#9bbdb1;margin-right:8px;white-space:nowrap}
+.road-tools button{background:#203239;border:1px solid #47605e;color:#c8e0d6;border-radius:6px;padding:6px 9px;font-size:11px;white-space:nowrap}
+.road-tools button:disabled{opacity:.35;cursor:not-allowed}
+.road-tools button.active{background:#44756d;color:white;border-color:#82b4a3}
+.road-workspace{display:flex;flex:1;min-height:0;gap:10px;padding:8px 12px}
+.road-map-wrap{min-width:170px;flex:1;min-height:0;border-radius:7px;background:#23343b;overflow:hidden;border:1px solid #43575a;position:relative}
+#road-map{display:block;width:100%;height:100%;touch-action:none;user-select:none}
+.road-info{width:214px;min-width:160px;max-width:214px;font-size:11px;line-height:1.7;color:#bdd1d0;overflow:auto}
+.road-info strong{display:block;font-size:12px;color:#e2eee7;margin-bottom:6px}
+.road-info input{width:74px;margin-left:4px;background:#16282d;color:#e4eeeb;border:1px solid #5c7572;border-radius:4px;padding:3px}
+.road-note{display:block;margin-top:8px;color:#8facaa}
+.road-segment{cursor:pointer;stroke-linecap:round;transition:stroke .14s;stroke:#b8c7b9;stroke-opacity:.70}
+.road-segment.selected{stroke:#f4c57c!important;stroke-opacity:1}
+.road-junction{cursor:grab;fill:#d5eddf;stroke:#183b3b;stroke-width:1.3;vector-effect:non-scaling-stroke}
+.road-junction.selected{fill:#ffd28a;stroke:#6c4323}
+.road-junction:active{cursor:grabbing}
+.road-editor-ghost{pointer-events:none;fill:#ffda9d;stroke:#d59b54;stroke-width:1.5;vector-effect:non-scaling-stroke}
+@media(max-width:700px){.road-info{max-width:150px;min-width:110px;width:135px}.road-tools{gap:3px;padding:4px}.road-tools button{padding:5px}.road-workspace{padding:5px;gap:5px}}
+
 </style>
 </head>
 <body>
@@ -119,12 +142,26 @@
         </div>
         <div class="metric-strip" id="metric-strip"></div>
         <section class="logic-dock">
-          <div class="dock-topbar"><div class="dock-tabs"><button type="button" class="dock-tab active" data-dock="graph">◈ PCG Graph</button><button type="button" class="dock-tab" data-dock="command">✦ 自然语言指令</button></div><div class="graph-badge" id="graph-status">检查生成链…</div></div>
+          <div class="dock-topbar"><div class="dock-tabs"><button type="button" class="dock-tab active" data-dock="graph">◈ PCG Graph</button><button type="button" class="dock-tab" data-dock="roads">⌁ 道路编辑器</button><button type="button" class="dock-tab" data-dock="command">✦ 自然语言指令</button></div><div class="graph-badge" id="graph-status">检查生成链…</div></div>
           <div class="graph-pane" id="graph-pane">
             <div class="graph-toolbar"><span>拖动节点布局 · 点击输出端口再点击输入端口以重连 · 断开的模块不参与生成</span><div class="graph-actions"><select id="graph-add-type" aria-label="选择要添加的模块"><option value="">添加模块…</option></select><button type="button" id="graph-add-btn" class="graph-action">＋ 添加</button><button type="button" id="graph-reset-btn" class="graph-action">恢复默认连接</button></div></div>
             <div class="graph-scroll" id="graph-scroll"><div class="graph-board" id="graph-board"><svg id="graph-wires" width="1440" height="260" viewBox="0 0 1440 260" aria-hidden="true"></svg><div id="graph-nodes"></div></div></div>
             <div class="graph-footer"><span id="graph-hint">点击节点查看规则 · 拖动标题调整布局</span><span id="graph-count">12 MODULES</span></div>
           </div>
+          <section class="road-pane" id="road-pane" hidden aria-label="道路网络编辑器">
+            <div class="road-tools">
+              <span id="road-editor-badge">AUTO ROAD GRAPH</span>
+              <button type="button" id="road-enable">转为可编辑道路网络</button>
+              <button type="button" id="road-reset" disabled>还原自动路网</button>
+              <button type="button" id="road-split" disabled>拆分选中路段</button>
+              <button type="button" id="road-branch" disabled>新建支路</button>
+              <button type="button" id="road-delete" disabled>删除中间节点</button>
+            </div>
+            <div class="road-workspace">
+              <div class="road-map-wrap"><svg id="road-map" role="img" aria-label="二维道路拓扑与地块编辑平面图"></svg></div>
+              <div class="road-info" id="road-info">选择一条道路或路口。开启编辑后可拖拽节点，或添加支路。</div>
+            </div>
+          </section>
           <section class="command-console" id="command-pane" hidden>
           <div class="console-header"><div><span class="sparkle">✦</span><strong>World Command</strong><span class="console-kicker">用自然语言修改生成规则</span></div><span class="engine-badge">规则解析 · 离线</span></div>
           <form id="command-form" class="command-form"><textarea id="command-input" rows="2" placeholder="例如：斜路角度设为 35 度；斜路宽度设为 12m" spellcheck="false"></textarea><button class="send-btn" type="submit" id="send-btn" title="执行指令">↗</button></form>
@@ -150,12 +187,129 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script>
 'use strict';
+const __roadNetwork=(()=>{
+/** WorldCraft V0.5 — editable, deterministic road centerline graph.
+ * Graph IDs identify authored nodes/segments, unlike derived junctions and rendered road polygons.
+ */
+const ROAD_NETWORK_VERSION = 1;
+const finite=n=>typeof n==='number'&&Number.isFinite(n);
+const round=n=>Math.round(n*1e5)/1e5;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+const difference=(a,b)=>[b.x-a.x,b.z-a.z];
+const cross=(a,b)=>a[0]*b[1]-a[1]*b[0];
+const clone=x=>JSON.parse(JSON.stringify(x));
+
+function normalizeRoadNetwork(input,size){
+  if(input==null)return null;
+  if(!input||input.version!==ROAD_NETWORK_VERSION||!Array.isArray(input.nodes)||!Array.isArray(input.edges))throw Error('无效的道路编辑图版本');
+  if(input.nodes.length<2||input.nodes.length>180||input.edges.length<1||input.edges.length>240)throw Error('道路网络规模应在 2–180 个节点和 1–240 条道路内');
+  const h=size/2, ids=new Set(),nodes=[];
+  for(const n of input.nodes){
+    if(!n||typeof n.id!=='string'||!/^[A-Za-z0-9_.-]{1,80}$/.test(n.id)||ids.has(n.id)||!finite(n.x)||!finite(n.z))throw Error('道路节点 ID 或坐标无效');
+    if(Math.abs(n.x)>h+1e-4||Math.abs(n.z)>h+1e-4)throw Error(`节点 ${n.id} 超出场地`);
+    nodes.push({id:n.id,x:round(n.x),z:round(n.z)});ids.add(n.id);
+  }
+  const positions=new Map(nodes.map(n=>[n.id,n]));
+  for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++)if(dist(nodes[i],nodes[j])<.25)throw Error(`道路节点距离过近 ${nodes[i].id}/${nodes[j].id}`);
+  const eid=new Set(),pairs=new Set(),edges=[];
+  for(const e of input.edges){
+    if(!e||typeof e.id!=='string'||!/^[A-Za-z0-9_.-]{1,80}$/.test(e.id)||eid.has(e.id)||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to)throw Error('道路边 ID 或引用无效');
+    const pair=[e.from,e.to].sort().join('|');if(pairs.has(pair))throw Error(`重复的道路段 ${pair}`);
+    if(dist(positions.get(e.from),positions.get(e.to))<Math.max(3,e.width/2))throw Error(`道路段 ${e.id} 长度太短`);
+    if(!finite(e.width)||e.width<6||e.width>22)throw Error(`道路段 ${e.id} 宽度必须在 6–22m`);
+    if(!['local','arterial','promenade'].includes(e.kind))throw Error(`道路段 ${e.id} 类型不受支持`);
+    pairs.add(pair);eid.add(e.id);edges.push({id:e.id,from:e.from,to:e.to,width:round(e.width),kind:e.kind});
+  }
+  const seen=new Set([nodes[0].id]),stack=[nodes[0].id];
+  while(stack.length){const id=stack.pop();for(const e of edges)if(e.from===id||e.to===id){const other=e.from===id?e.to:e.from;if(!seen.has(other)){seen.add(other);stack.push(other);}}}
+  if(seen.size!==nodes.length)throw Error('道路编辑图必须保持连通，孤立节点或道路不可保存');
+  // Self-intersections and crossings are physically connected by automatic noding downstream.
+  // Collinear overlapping segments are rejected: their exact geometry is ambiguous for parcel frontage.
+  for(let i=0;i<edges.length;i++)for(let j=i+1;j<edges.length;j++){
+    const a=edges[i],b=edges[j],p=positions.get(a.from),q=positions.get(a.to),r=positions.get(b.from),s=positions.get(b.to);
+    const pq=difference(p,q),rs=difference(r,s);
+    const scale=Math.hypot(...pq)*Math.hypot(...rs);
+    if(Math.abs(cross(pq,rs))>1e-6*scale||Math.abs(cross(pq,difference(p,r)))>1e-6*scale)continue;
+    const len=pq[0]**2+pq[1]**2,t=v=>( (v.x-p.x)*pq[0]+(v.z-p.z)*pq[1] )/len;
+    if(Math.min(1,Math.max(t(r),t(s)))-Math.max(0,Math.min(t(r),t(s)))>1e-5)throw Error(`道路 ${a.id} 与 ${b.id} 沿同一直线重叠`);
+  }
+  return {version:ROAD_NETWORK_VERSION,nodes,edges};
+}
+function networkFromTopology(topology,size){
+  const ids=new Map(topology.nodes.map((n,i)=>[n.id,`N-${i}`]));
+  const nodes=topology.nodes.map((n,i)=>({id:ids.get(n.id),x:n.x,z:n.z}));
+  const edges=topology.edges.map((e,i)=>({id:`E-${i}`,from:ids.get(e.from),to:ids.get(e.to),width:e.width,kind:topology.axes.find(a=>a.id===e.axisId)?.kind??'local'}));
+  return normalizeRoadNetwork({version:ROAD_NETWORK_VERSION,nodes,edges},size);
+}
+function networkSegments(network){
+  const nodes=new Map(network.nodes.map(n=>[n.id,n]));
+  return network.edges.map(e=>({...e,axisId:e.id,fromPoint:[nodes.get(e.from).x,nodes.get(e.from).z],toPoint:[nodes.get(e.to).x,nodes.get(e.to).z]}));
+}
+function moveRoadNode(network,id,x,z,size){
+  const next=clone(network),node=next.nodes.find(n=>n.id===id);
+  if(!node)throw Error('道路节点不存在');node.x=round(x);node.z=round(z);
+  return normalizeRoadNetwork(next,size);
+}
+function resizeRoadEdge(network,id,width,size){
+  const next=clone(network),edge=next.edges.find(e=>e.id===id);
+  if(!edge)throw Error('道路段不存在');edge.width=round(width);
+  return normalizeRoadNetwork(next,size);
+}
+function nextId(values,prefix){let n=1;const known=new Set(values.map(v=>v.id));while(known.has(`${prefix}${n}`))n++;return `${prefix}${n}`;}
+function splitRoadEdge(network,edgeId,size){
+  const next=clone(network),index=next.edges.findIndex(e=>e.id===edgeId);
+  if(index<0)throw Error('道路段不存在');const old=next.edges[index],nodes=new Map(next.nodes.map(n=>[n.id,n]));
+  const a=nodes.get(old.from),b=nodes.get(old.to),id=nextId(next.nodes,'N-edit-');
+  next.nodes.push({id,x:round((a.x+b.x)/2),z:round((a.z+b.z)/2)});
+  next.edges.splice(index,1,{...old,to:id},{...old,id:nextId(next.edges,'E-edit-'),from:id});
+  return {network:normalizeRoadNetwork(next,size),nodeId:id};
+}
+function addRoadBranch(network,from,x,z,size,width=10){
+  const next=clone(network),n=next.nodes.find(n=>n.id===from);if(!n)throw Error('请选择一处已有道路节点');
+  const id=nextId(next.nodes,'N-edit-'),edgeId=nextId(next.edges,'E-edit-');
+  next.nodes.push({id,x:round(x),z:round(z)});next.edges.push({id:edgeId,from,to:id,width,kind:'local'});
+  return {network:normalizeRoadNetwork(next,size),nodeId:id,edgeId};
+}
+function removeRoadNode(network,id,size){
+  const next=clone(network),links=next.edges.filter(e=>e.from===id||e.to===id);
+  if(links.length===1){
+    next.nodes=next.nodes.filter(n=>n.id!==id);next.edges=next.edges.filter(e=>e!==links[0]);
+    return normalizeRoadNetwork(next,size);
+  }
+  if(links.length!==2)throw Error('只允许删除道路终端或两条连接的中间节点，不能删除复杂交叉口');
+  const first=links[0],second=links[1];
+  const a=first.from===id?first.to:first.from,b=second.from===id?second.to:second.from;
+  if(a===b)throw Error('不能合并为自环道路');
+  next.nodes=next.nodes.filter(n=>n.id!==id);next.edges=next.edges.filter(e=>!links.includes(e));
+  next.edges.push({id:first.id,from:a,to:b,width:first.width,kind:first.kind});
+  return normalizeRoadNetwork(next,size);
+}
+/** Auditable road-specific natural language (not a free-form LLM agent). */
+function parseRoadEditInstruction(source){
+  const s=String(source||'').trim();
+  const move=s.match(/(?:路口|道路节点|节点)\s*([A-Za-z0-9_.-]+)\s*向(东|西|南|北)\s*移动\s*(\d+(?:\.\d+)?)\s*(?:米|m)?/i);
+  if(move){
+    const metres=Number(move[3]);
+    if(!Number.isFinite(metres)||metres<=0||metres>100)return {type:'error',message:'道路节点单次移动范围为 0–100m'};
+    const dir={东:[1,0],西:[-1,0],南:[0,1],北:[0,-1]}[move[2]];
+    return {type:'move-node',nodeId:move[1],dx:metres*dir[0],dz:metres*dir[1]};
+  }
+  const width=s.match(/(?:道路|路段)\s*([A-Za-z0-9_.-]+)\s*(?:宽度|路幅)?\s*(?:改为|设为|调整为|调整到)\s*(\d+(?:\.\d+)?)\s*(?:米|m)?/i);
+  if(width)return {type:'resize-edge',edgeId:width[1],width:Number(width[2])};
+  return null;
+}
+
+return {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction};
+})();
+const {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction}=__roadNetwork;
 const __polygonal=(()=>{
 /** WorldCraft V0.4 experimental convex-polygon PCG for connected grid + oblique through-road.
  * Geometry is kept in local metric X/Z coordinates; all clipping is on convex polygons.
  * Deliberate scope: straight through-corridors, not arbitrary clipped cul-de-sacs or GIS routing.
  */
+
 const GEOMETRY_MODEL = 'convex-polygons-v1';
+const EDITABLE_GEOMETRY_MODEL = 'editable-road-polygons-v1';
 const EPS=1e-7;
 const rn=n=>Math.round(n*1e6)/1e6;
 const dot=(p,n)=>p[0]*n[0]+p[1]*n[1];
@@ -294,6 +448,82 @@ function carveRoads(world,axes){
   }
   return {roads,blocks:land.map((p,i)=>spatial(`BL-${i}`,p))};
 }
+/** Clip each finite road footprint into mutually exclusive convex cells.
+ * This preserves exact set-difference and site tiling without an external polygon boolean library.
+ * Land fragments remain convex, with no fake bounding-box geometry.
+ */
+function subtractConvex(source,cutter){
+  let inside=source,outer=[];
+  const signed=cutter.reduce((s,p,i)=>s+cross(p,cutter[(i+1)%cutter.length]),0);
+  const sign=signed>=0?1:-1;
+  for(let i=0;i<cutter.length&&inside.length;i++){
+    const a=cutter[i],b=cutter[(i+1)%cutter.length],d=sub(b,a),n=[sign*d[1],-sign*d[0]],t=dot(a,n);
+    const outside=clipHalfPlane(inside,[-n[0],-n[1]],-t);
+    if(outside.length)outer.push(outside);
+    inside=clipHalfPlane(inside,n,t);
+  }
+  return {outside:outer,inside};
+}
+function stablePolygonId(prefix,poly){
+  const points=poly.map(p=>p.map(v=>Math.round(v*1000))).map(p=>p.join(':'));
+  const candidates=[];
+  for(let i=0;i<points.length;i++){
+    candidates.push([...points.slice(i),...points.slice(0,i)].join('|'));
+  }
+  const reverse=points.slice().reverse();
+  for(let i=0;i<reverse.length;i++)candidates.push([...reverse.slice(i),...reverse.slice(0,i)].join('|'));
+  const canon=candidates.sort()[0]||'';
+  let hash=2166136261;
+  for(let i=0;i<canon.length;i++)hash=Math.imul(hash^canon.charCodeAt(i),16777619)>>>0;
+  return `${prefix}-${hash.toString(36)}`;
+}
+function corridorPolygon(a,b,width){
+  const d=sub(b,a),len=Math.hypot(...d);
+  if(len<1e-6)return [];
+  const nx=-d[1]*width/(2*len),nz=d[0]*width/(2*len);
+  return [[rn(a[0]+nx),rn(a[1]+nz)],[rn(b[0]+nx),rn(b[1]+nz)],[rn(b[0]-nx),rn(b[1]-nz)],[rn(a[0]-nx),rn(a[1]-nz)]];
+}
+function mergedRoadSegments(network){
+  const parts=networkSegments(network),groups=[];
+  for(const e of parts){
+    const a=e.fromPoint,b=e.toPoint,d=sub(b,a),len=Math.hypot(...d),u=[d[0]/len,d[1]/len];
+    if(u[0]<-EPS||(Math.abs(u[0])<EPS&&u[1]<0)){u[0]*=-1;u[1]*=-1;}
+    const n=[-u[1],u[0]],off=dot(a,n);
+    let group=groups.find(g=>Math.abs(cross(g.u,u))<1e-5&&Math.abs(g.offset-off)<.002&&g.width===e.width&&g.kind===e.kind);
+    if(!group){group={u,n,offset:off,width:e.width,kind:e.kind,intervals:[]};groups.push(group);}
+    group.intervals.push({from:Math.min(dot(a,u),dot(b,u)),to:Math.max(dot(a,u),dot(b,u)),id:e.id});
+  }
+  const output=[];
+  for(const g of groups){
+    g.intervals.sort((a,b)=>a.from-b.from);
+    let current=null;
+    const flush=()=>{if(!current)return;const p=t=>[rn(g.u[0]*t+g.n[0]*g.offset),rn(g.u[1]*t+g.n[1]*g.offset)];
+      output.push({id:current.ids.sort().join('+'),kind:g.kind,width:g.width,from:p(current.from),to:p(current.to)});};
+    for(const interval of g.intervals){
+      if(!current){current={from:interval.from,to:interval.to,ids:[interval.id]};continue;}
+      if(interval.from<=current.to+1e-3){current.to=Math.max(current.to,interval.to);current.ids.push(interval.id);}
+      else{flush();current={from:interval.from,to:interval.to,ids:[interval.id]};}
+    }
+    flush();
+  }
+  return output;
+}
+function carveFiniteRoads(world,network){
+  const axes=mergedRoadSegments(network);
+  let remaining=[square(world.size)],roads=[];
+  for(const axis of axes){
+    const footprint=corridorPolygon(axis.from,axis.to,axis.width),next=[];
+    for(const poly of remaining){
+      const {outside,inside}=subtractConvex(poly,footprint);
+      next.push(...outside);
+      if(inside.length&&polygonArea(inside)>1e-4)roads.push({...spatial(stablePolygonId('R',inside),inside),axisId:axis.id,kind:axis.kind});
+    }
+    remaining=next.filter(p=>polygonArea(p)>1e-4);
+  }
+  const blocks=remaining.map(poly=>spatial(stablePolygonId('BL',poly),poly));
+  return {roads,blocks,axes};
+}
+
 function assignParcels(world,blocks,roads){
   const parcels=[];
   for(const block of blocks){
@@ -380,7 +610,10 @@ function createTrees(world,parcels,buildings,roads,rng){
 }
 /** Replaces rectangle-based downstream stages when a diagonal road is enabled. */
 function generatePolygonCity(world,features,rng){
-  const axes=makeRoadAxes(world,features),roadGraph=createRoadTopology(axes,world.size),carved=carveRoads(world,axes);
+  const editing=!!world.roadNetwork;
+  const axes=editing?networkSegments(world.roadNetwork).map(e=>({id:e.id,from:e.fromPoint,to:e.toPoint,kind:e.kind,width:e.width})):makeRoadAxes(world,features);
+  const roadGraph=editing?createRoadTopology(axes,world.size):createRoadTopology(axes,world.size);
+  const carved=editing?carveFiniteRoads(world,world.roadNetwork):carveRoads(world,axes);
   const parcels=distributeUse(world,assignParcels(world,carved.blocks,carved.roads),features,rng);
   const buildings=createBuildings(world,parcels,features,rng);
   const parks=parcels.filter(p=>p.use==='park').map(p=>({...p,id:`P-${p.id}`,parcelId:p.id,kind:p.parkClass}));
@@ -394,7 +627,7 @@ function generatePolygonCity(world,features,rng){
     parkSizes:{small:parks.filter(p=>p.kind==='small').length,medium:parks.filter(p=>p.kind==='medium').length,large:parks.filter(p=>p.kind==='large').length},
     treeCount:trees.length,streetTrees:trees.filter(t=>t.kind==='street').length,parkTrees:trees.filter(t=>t.kind==='park').length,
     buildingUses:{residential:buildings.filter(b=>b.use==='residential').length,commercial:buildings.filter(b=>b.use==='commercial').length,civic:buildings.filter(b=>b.use==='civic').length}};
-  return {geometryMode:GEOMETRY_MODEL,world,features,roads:carved.roads,roadLines:axes.map(a=>({id:`RL-${a.id}`,from:a.from,to:a.to,kind:a.kind})),roadGraph,
+  return {geometryMode:editing?EDITABLE_GEOMETRY_MODEL:GEOMETRY_MODEL,world,features,roads:carved.roads,roadLines:axes.map(a=>({id:`RL-${a.id}`,from:a.from,to:a.to,kind:a.kind})),roadGraph,
     blocks:carved.blocks,parcels,buildings,parks,trees,metrics,
     pipeline:[{stage:'roads',count:carved.roads.length},{stage:'parcels',count:parcels.length},{stage:'landuse',count:parcels.length},{stage:'buildings',count:buildings.length},{stage:'parks',count:parks.length},{stage:'trees',count:trees.length}]};
 }
@@ -432,9 +665,9 @@ function validatePolygonCity(scene){
   return {valid:errors.length===0,errors,checks:{roads:scene.roads.length,parcels:scene.parcels.length,buildings:scene.buildings.length,parks:scene.parks.length,trees:scene.trees.length}};
 }
 
-return {generatePolygonCity,validatePolygonCity};
+return {generatePolygonCity,validatePolygonCity,makeRoadAxes,createRoadTopology};
 })();
-const {generatePolygonCity,validatePolygonCity}=__polygonal;
+const {generatePolygonCity,validatePolygonCity,makeRoadAxes,createRoadTopology}=__polygonal;
 
 /** WorldCraft V0.3: pure deterministic, axis-aligned spatial PCG pipeline.
  * Local metric X/Z plane. All stages consume upstream artifacts, not rendered meshes.
@@ -641,7 +874,7 @@ function makeTrees(world,assigned,roads,buildings,parks,rng){
   return trees;
 }
 function generateSpatialCity(world,features,rng){
-  if(world.diagonalWidth>0)return {...generatePolygonCity(world,features,rng),extensions:EXTENSION_SLOTS};
+  if(world.roadNetwork||world.diagonalWidth>0)return {...generatePolygonCity(world,features,rng),extensions:EXTENSION_SLOTS};
   const pipeline=[];
   const roadsStage=makeRoads(world,features);pipeline.push({stage:'roads',count:roadsStage.roads.length});
   const parcelStage=makeParcels(world,roadsStage,rng);pipeline.push({stage:'parcels',count:parcelStage.parcels.length});
@@ -662,7 +895,7 @@ function generateSpatialCity(world,features,rng){
   return {world,features,roads:roadsStage.roads,roadLines:roadsStage.roadLines,blocks:parcelStage.blocks,parcels,buildings,parks,trees,pipeline,metrics,extensions:EXTENSION_SLOTS};
 }
 function validateSpatialInvariants(scene){
-  if(scene.geometryMode==='convex-polygons-v1')return validatePolygonCity(scene);
+  if(scene.geometryMode==='convex-polygons-v1'||scene.geometryMode==='editable-road-polygons-v1')return validatePolygonCity(scene);
   const errors=[],withinWorld=b=>b.x0>=-scene.world.size/2-EPS&&b.x1<=scene.world.size/2+EPS&&b.z0>=-scene.world.size/2-EPS&&b.z1<=scene.world.size/2+EPS;
   const checkExclusive=(a,b,label)=>{for(const x of a)for(const y of b)if(overlapArea(x.bounds,y.bounds)>EPS)errors.push(`${label}: ${x.id} / ${y.id}`);};
   for(const name of ['roads','parcels','buildings','parks'])for(const item of scene[name])if(!withinWorld(item.bounds))errors.push(`${name} ${item.id} 超出场地`);
@@ -707,7 +940,8 @@ function validateSpatialInvariants(scene){
 const __pcg = (()=>{
 /** WorldCraft V0.3 — stable city rules, deterministic spatial pipeline. */
 
-const SCHEMA_VERSION = 3;
+
+const SCHEMA_VERSION = 4;
 const DEFAULT_WORLD = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
   name: 'Coastal Future City',
@@ -723,6 +957,7 @@ const DEFAULT_WORLD = Object.freeze({
   diagonalWidth: 12,
   diagonalAngle: 35,
   diagonalOffset: 0,
+  roadNetwork: null,
   parcelTargetWidth: 42,
   parkShare: 0.20,
   parkSmallMaxArea: 1500,
@@ -751,7 +986,7 @@ function randomFor(seed, x, z, channel = 0) {
 
 function validateWorld(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('无效的世界文件');
-  if (![1,2,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
+  if (![1,2,3,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
   const world = {};
   for (const key of Object.keys(DEFAULT_WORLD)) {
     world[key] = key==='schemaVersion' ? SCHEMA_VERSION : (input.schemaVersion<3 && key==='diagonalWidth' ? 0 : (input[key] ?? DEFAULT_WORLD[key]));
@@ -766,6 +1001,7 @@ function validateWorld(input) {
   if (world.plazaRadius < 20 || world.plazaRadius > Math.min(world.size/2-15,160)) throw new Error('中央开放空间半径不在允许范围内');
   if(!world.extensions||typeof world.extensions!=='object'||Array.isArray(world.extensions)||Object.keys(world.extensions).some(k=>!['terrain','hydrology'].includes(k))||world.extensions.terrain!=null||world.extensions.hydrology!=null)throw Error('地形 / 水系扩展接口已预留，但本版本尚不接受扩展数据');
   world.extensions={terrain:null,hydrology:null};
+  world.roadNetwork=normalizeRoadNetwork(input.schemaVersion>=4?world.roadNetwork:null,world.size);
   if (typeof world.name !== 'string' || world.name.length > 120) throw new Error('世界名称无效');
   if(!Number.isInteger(world.roadSpacing)||world.roadSpacing<60||world.roadSpacing>160||world.roadSpacing%20!==0)throw Error('道路间距须在 60–160m，且为 20m 的倍数');
   if(world.roadWidth<6||world.roadWidth>22||world.roadWidth>=world.roadSpacing/3)throw Error('道路宽度须为 6–22m 且小于道路间距的三分之一');
@@ -920,7 +1156,7 @@ function makeExport(world,history=[]) {
 }
 
 function readExport(doc) {
-  if(!doc||doc.format!=='WorldCraft'||![1,2,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
+  if(!doc||doc.format!=='WorldCraft'||![1,2,3,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
   return validateWorld(doc.world);
 }
 
@@ -1191,7 +1427,7 @@ class WorldRenderer {
     // V0.3: road polygons, park parcels, and land-use boundaries are real PCG outputs.
     // Ground surfaces are drawn in separate height layers (not overlapping plan footprints).
     const parkColors={small:'#76a48d',medium:'#5e8d77',large:'#447d68'};
-    if(scene.geometryMode==='convex-polygons-v1'){
+    if(!!scene.geometryMode){
       const draw=(p,y,h,color,architect=false)=>this.createMesh(polygonPrism(p.vertices,p.x,p.z),[instance(p.x,y,p.z,1,h,1,color)],architect);
       for(const p of scene.parcels)draw(p,.14,.10,p.use==='residential'?'#526568':p.use==='commercial'?'#627579':p.use==='civic'?'#66716e':'#47695d');
       for(const road of scene.roads)draw(road,.25,.14,road.kind==='promenade'?'#9baba0':road.kind==='arterial'?'#9aa49b':'#26373e');
@@ -1221,7 +1457,7 @@ class WorldRenderer {
         accents.push(instance(b.x,b.height+4.0,b.z,b.width*.16,4.5,b.depth*.16,'#baccc3'));
       }
     }
-    if(scene.geometryMode==='convex-polygons-v1'){
+    if(!!scene.geometryMode){
       for(const b of scene.buildings){
         const base=b.use==='commercial'?'#9b9d92':b.use==='civic'?'#c0a78e':PALETTE[Math.floor(b.tone*PALETTE.length)];
         const color=b.id===this.selected?'#e2bd7a':base;
@@ -1418,12 +1654,15 @@ const {NODE_DEFS,defaultGraph,checkGraphShape,evaluateGraph,moveGraphNode,connec
 
 
 
+
+
+
 const $=id=>document.getElementById(id);
 const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pct=n=>`${Math.round(n*100)}%`;
 const fmt=(n,d=0)=>Number(n).toLocaleString('zh-CN',{maximumFractionDigits:d,minimumFractionDigits:d});
 const shortTime=()=>new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
-const storeKey='worldcraft-v0.4-session';
+const storeKey='worldcraft-v0.5-session';
 const demoPrompts=[
   '生成一座 400×400m 的未来城市，中心高外围低，保留中央开放空间',
   '将东侧建筑密度降低 30%，其他区域不变',
@@ -1432,7 +1671,7 @@ const demoPrompts=[
 ];
 const pipelineNames=Object.entries(NODE_DEFS).map(([key,n])=>({key,name:n.cn}));
 let persisted;
-try{persisted=JSON.parse(localStorage.getItem(storeKey)||localStorage.getItem('worldcraft-v0.2-session')||localStorage.getItem('worldcraft-v0.1-session')||'null');}catch(_){persisted=null;}
+try{persisted=JSON.parse(localStorage.getItem(storeKey)||localStorage.getItem('worldcraft-v0.4-session')||localStorage.getItem('worldcraft-v0.2-session')||localStorage.getItem('worldcraft-v0.1-session')||'null');}catch(_){persisted=null;}
 let initialWorld;
 try{initialWorld=validateWorld(persisted?.world ?? {...DEFAULT_WORLD});}catch(_){initialWorld={...DEFAULT_WORLD};}
 let initialBaseline;
@@ -1451,6 +1690,8 @@ const state={
   selectedNode:'density',
   graphPending:null,
   dock:'graph',
+  roadSelection:{node:null,edge:null},
+  roadBranchMode:false,
   past:[],future:[],
   selectedId:null,
   allBuildings:false,
@@ -1472,7 +1713,7 @@ function refreshAll(rebuild=true){
   $('seed-footnote').textContent=`SEED #${state.world.seed}`;
   $('mesh-count').textContent=fmt(state.scene.metrics.total);
   $('world-caption').textContent+=state.scene.geometryMode?' / POLYGON PCG':'';
-  renderMetrics();renderTree();renderRules();renderSelection();renderComparison();renderHistory();renderButtons();renderGraph();renderGraphInspector();renderPipeline();persist();
+  renderMetrics();renderTree();renderRules();renderSelection();renderComparison();renderHistory();renderButtons();renderGraph();renderGraphInspector();renderPipeline();renderRoadEditor();persist();
 }
 function commit(description,world,{resetBaseline=false,graph=state.graph}={}){
   const next=validateWorld(world);
@@ -1493,6 +1734,25 @@ function setParameter(key,value,label){
   commit(label,result.world);
 }
 function runInstruction(text){
+  const roadCmd=parseRoadEditInstruction(text);
+  if(roadCmd){
+    try{
+      if(roadCmd.type==='error')throw Error(roadCmd.message);
+      const net=editorNetwork();
+      let next,label;
+      if(roadCmd.type==='move-node'){
+        const node=net.nodes.find(n=>n.id===roadCmd.nodeId);
+        if(!node)throw Error('找不到道路节点 '+roadCmd.nodeId);
+        next=moveRoadNode(net,node.id,node.x+roadCmd.dx,node.z+roadCmd.dz,state.world.size);
+        label=`自然语言移动节点 ${node.id} (${roadCmd.dx},${roadCmd.dz})m`;
+      }else{
+        next=resizeRoadEdge(net,roadCmd.edgeId,roadCmd.width,state.world.size);
+        label=`自然语言修改路段 ${roadCmd.edgeId} 宽度 ${roadCmd.width}m`;
+      }
+      if(roadEdit(label,next))$('command-input').value='';
+    }catch(error){feedback(error.message,true);toast(error.message);}
+    return;
+  }
   const graphCmd=parseGraphLanguage(text);
   if(graphCmd){
     try{
@@ -1663,7 +1923,7 @@ function wireEvents(){
   $('export-btn').addEventListener('click',downloadScene);
   $('import-btn').addEventListener('click',()=>$('import-file').click());
   $('import-file').addEventListener('change',async e=>{await importScene(e.target.files?.[0]);e.target.value='';});
-  $('set-baseline').addEventListener('click',()=>{if(!evaluateGraph(state.graph).valid){toast('先修复生成链再设置基线');return;}state.baseline={...state.world};state.baselineGraph=structuredClone(state.graph);state.baselineScene=generateCity(state.baseline,evaluateGraph(state.baselineGraph).features);persist();renderComparison();toast('已将当前世界设为新的比较基线');});
+  $('set-baseline').addEventListener('click',()=>{if(!evaluateGraph(state.graph).valid){toast('先修复生成链再设置基线');return;}state.baseline=structuredClone(state.world);state.baselineGraph=structuredClone(state.graph);state.baselineScene=generateCity(state.baseline,evaluateGraph(state.baselineGraph).features);persist();renderComparison();toast('已将当前世界设为新的比较基线');});
   window.addEventListener('keydown',e=>{
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){
       e.preventDefault();if(e.shiftKey)redo();else undo();
@@ -1752,7 +2012,7 @@ function wireGraphEvents(){
   document.querySelectorAll('[data-dock]').forEach(btn=>btn.addEventListener('click',()=>{
     state.dock=btn.dataset.dock;
     document.querySelectorAll('[data-dock]').forEach(x=>x.classList.toggle('active',x===btn));
-    $('graph-pane').hidden=state.dock!=='graph';$('command-pane').hidden=state.dock!=='command';
+    $('graph-pane').hidden=state.dock!=='graph';$('command-pane').hidden=state.dock!=='command';$('road-pane').hidden=state.dock!=='roads';
   }));
   $('graph-add-btn').addEventListener('click',()=>{
     const type=$('graph-add-type').value;
@@ -1831,8 +2091,129 @@ function parseGraphLanguage(text){
   return type?{type,enabled}:null;
 }
 
+
+/** V0.5: road topology editor; 2D site coordinates are identical to the 3D X/Z plane. */
+function editorNetwork(){
+  if(state.world.roadNetwork)return state.world.roadNetwork;
+  const roadGraph=state.scene.roadGraph??createRoadTopology(makeRoadAxes(state.world,evaluateGraph(state.graph).features),state.world.size);
+  return networkFromTopology(roadGraph,state.world.size);
+}
+function roadEdit(label,roadNetwork){
+  try{
+    const world=validateWorld({...state.world,roadNetwork});
+    const features=evaluateGraph(state.graph);
+    if(!features.valid)throw Error('请先修复 PCG Graph 的生成链');
+    const candidate=generateCity(world,features.features);
+    const report=validateSpatialInvariants(candidate);
+    if(!report.valid)throw Error('空间检查未通过：'+report.errors[0]+`（共 ${report.errors.length} 项）`);
+    commit(label,world);
+    return true;
+  }catch(err){
+    feedback('道路操作被拒绝：'+err.message,true);toast('几何冲突或地块无临路关系，已保留原场景');
+    return false;
+  }
+}
+function roadMarkup(network){
+  const half=state.world.size/2, m=new Map(network.nodes.map(n=>[n.id,n])), selected=state.roadSelection;
+  const verts=p=>p.map(([x,z])=>`${x},${z}`).join(' ');
+  const parcels=state.scene.parcels.map(p=>{
+    const poly=p.vertices??[[p.bounds.x0,p.bounds.z0],[p.bounds.x1,p.bounds.z0],[p.bounds.x1,p.bounds.z1],[p.bounds.x0,p.bounds.z1]];
+    const fill=p.use==='park'?'#466f57':p.use==='commercial'?'#4f6367':p.use==='civic'?'#69685c':'#344e55';
+    return `<polygon points="${verts(poly)}" fill="${fill}" stroke="#6c8380" stroke-width=".7"/>`;
+  }).join('');
+  const roads=network.edges.map(e=>{
+    const a=m.get(e.from),b=m.get(e.to);
+    return `<line class="road-segment ${selected.edge===e.id?'selected':''}" data-road-edge="${e.id}" x1="${a.x}" y1="${a.z}" x2="${b.x}" y2="${b.z}" stroke-width="${e.width}"/><line data-road-edge="${e.id}" x1="${a.x}" y1="${a.z}" x2="${b.x}" y2="${b.z}" stroke="transparent" stroke-width="${Math.max(e.width+5,15)}"/>`;
+  }).join('');
+  const nodes=network.nodes.map(n=>`<circle class="road-junction ${selected.node===n.id?'selected':''}" data-road-node="${n.id}" cx="${n.x}" cy="${n.z}" r="${selected.node===n.id?5:3.6}"/>`).join('');
+  return `<rect x="${-half}" y="${-half}" width="${state.world.size}" height="${state.world.size}" fill="#203238"/>${parcels}${roads}${nodes}<circle id="road-drag-ghost" class="road-editor-ghost" cx="0" cy="0" r="5" visibility="hidden"/>`;
+}
+function renderRoadEditor(){
+  const net=editorNetwork(),editing=!!state.world.roadNetwork;
+  $('road-editor-badge').textContent=`${editing?'EDITABLE':'AUTO'} · ${net.nodes.length} NODES / ${net.edges.length} EDGES`;
+  $('road-enable').disabled=editing;$('road-reset').disabled=!editing;
+  $('road-split').disabled=!editing||!state.roadSelection.edge;
+  $('road-branch').disabled=!editing||!state.roadSelection.node;
+  $('road-delete').disabled=!editing||!state.roadSelection.node;
+  $('road-branch').classList.toggle('active',state.roadBranchMode);
+  const svg=$('road-map'),half=state.world.size/2;
+  svg.setAttribute('viewBox',`${-half} ${-half} ${state.world.size} ${state.world.size}`);
+  svg.innerHTML=roadMarkup(net);
+  const n=net.nodes.find(n=>n.id===state.roadSelection.node),e=net.edges.find(e=>e.id===state.roadSelection.edge);
+  if(n){$('road-info').innerHTML=`<strong>路口 ${escapeHTML(n.id)}</strong>坐标：X ${fmt(n.x,1)}m / Z ${fmt(n.z,1)}m<br/>连接道路：${net.edges.filter(e=>e.from===n.id||e.to===n.id).length} 条<br/><span class="road-note">${editing?'拖拽圆点修改空间拓扑。点击「新建支路」后，在平面空白处点击终点。':'点击「转为可编辑道路网络」以启用拖拽。'}</span>`;}
+  else if(e){$('road-info').innerHTML=`<strong>道路 ${escapeHTML(e.id)}</strong>${escapeHTML(e.kind)} · ${escapeHTML(e.from)} → ${escapeHTML(e.to)}<br/>路幅：<input id="road-width-input" type="number" min="6" max="22" step="1" value="${e.width}" ${editing?'':'disabled'}/> m<span class="road-note">修改宽度会重算地块、建筑、公园与树木。</span>`;}
+  else $('road-info').innerHTML=`<strong>${editing?'道路拓扑编辑':'道路网络预览'}</strong>选择道路查看宽度，选择节点查看坐标。<span class="road-note">${editing?'拖拽路口、拆分路段或添加分支。所有提交都经过空间碰撞与临路校验。':'点击「转为可编辑道路网络」，将当前生成结果转换为可保存的节点与道路段。'}</span>`;
+}
+function svgToWorld(svg,e){
+  const rect=svg.getBoundingClientRect(),h=state.world.size/2;
+  // Default preserveAspectRatio=xMidYMid meet: compensate for letterboxing.
+  const scale=Math.min(rect.width/state.world.size,rect.height/state.world.size);
+  const padX=(rect.width-scale*state.world.size)/2,padY=(rect.height-scale*state.world.size)/2;
+  return {x:Math.round(Math.max(-h,Math.min(h,(e.clientX-rect.left-padX)/scale-h))*10)/10,
+    z:Math.round(Math.max(-h,Math.min(h,(e.clientY-rect.top-padY)/scale-h))*10)/10};
+}
+function wireRoadEditor(){
+  $('road-enable').addEventListener('click',()=>{
+    if(roadEdit('转换为可编辑道路网络',editorNetwork())){state.roadSelection={node:null,edge:null};renderRoadEditor();}
+  });
+  $('road-reset').addEventListener('click',()=>{
+    if(roadEdit('恢复参数化自动道路',null)){state.roadSelection={node:null,edge:null};state.roadBranchMode=false;renderRoadEditor();}
+  });
+  $('road-split').addEventListener('click',()=>{
+    try{const item=splitRoadEdge(editorNetwork(),state.roadSelection.edge,state.world.size);
+      if(roadEdit(`拆分道路 ${state.roadSelection.edge}`,item.network)){state.roadSelection={node:item.nodeId,edge:null};renderRoadEditor();}}
+    catch(error){feedback(error.message,true);}
+  });
+  $('road-delete').addEventListener('click',()=>{
+    try{const net=removeRoadNode(editorNetwork(),state.roadSelection.node,state.world.size);
+      if(roadEdit(`删除道路节点 ${state.roadSelection.node}`,net)){state.roadSelection={node:null,edge:null};renderRoadEditor();}}
+    catch(error){feedback(error.message,true);}
+  });
+  $('road-branch').addEventListener('click',()=>{state.roadBranchMode=!state.roadBranchMode;renderRoadEditor();toast(state.roadBranchMode?'在道路平面空白处点击，添加与选中节点连接的支路':'已退出添加支路模式');});
+  $('road-info').addEventListener('change',e=>{
+    if(e.target.id!=='road-width-input'||!state.roadSelection.edge)return;
+    try{roadEdit(`调整道路 ${state.roadSelection.edge} 宽度`,resizeRoadEdge(editorNetwork(),state.roadSelection.edge,Number(e.target.value),state.world.size));}
+    catch(error){feedback(error.message,true);renderRoadEditor();}
+  });
+  const svg=$('road-map');let dragging=null;
+  svg.addEventListener('pointerdown',e=>{
+    const node=e.target.closest('[data-road-node]'),edge=e.target.closest('[data-road-edge]');
+    if(node){
+      const id=node.dataset.roadNode;state.roadSelection={node:id,edge:null};renderRoadEditor();
+      if(state.world.roadNetwork){const original=editorNetwork().nodes.find(n=>n.id===id);
+        dragging={id,original,point:svgToWorld(svg,e),pointerId:e.pointerId};svg.setPointerCapture(e.pointerId);
+      }return;
+    }
+    if(edge){state.roadSelection={node:null,edge:edge.dataset.roadEdge};state.roadBranchMode=false;renderRoadEditor();return;}
+    if(state.roadBranchMode&&state.world.roadNetwork&&state.roadSelection.node){
+      try{const p=svgToWorld(svg,e),result=addRoadBranch(editorNetwork(),state.roadSelection.node,p.x,p.z,state.world.size);
+        if(roadEdit(`增加支路 ${result.edgeId}`,result.network)){state.roadSelection={node:result.nodeId,edge:null};state.roadBranchMode=false;renderRoadEditor();}}
+      catch(err){feedback(err.message,true);toast(err.message);}
+    }
+  });
+  svg.addEventListener('pointermove',e=>{
+    if(!dragging||e.pointerId!==dragging.pointerId)return;
+    const p=svgToWorld(svg,e),ghost=svg.querySelector('#road-drag-ghost');
+    if(ghost){ghost.setAttribute('cx',p.x);ghost.setAttribute('cy',p.z);ghost.setAttribute('visibility','visible');}
+    dragging.current=p;
+  });
+  const finish=e=>{
+    if(!dragging||e.pointerId!==dragging.pointerId)return;
+    const item=dragging;dragging=null;
+    if(svg.hasPointerCapture(e.pointerId))svg.releasePointerCapture(e.pointerId);
+    if(e.type==='pointercancel'){renderRoadEditor();return;}
+    const p=item.current??item.original;
+    if(Math.hypot(p.x-item.original.x,p.z-item.original.z)>0.25){
+      try{roadEdit(`移动路口 ${item.id} 至 ${p.x}, ${p.z}`,moveRoadNode(editorNetwork(),item.id,p.x,p.z,state.world.size));}
+      catch(err){feedback(err.message,true);toast(err.message);}
+    }
+    renderRoadEditor();
+  };
+  svg.addEventListener('pointerup',finish);svg.addEventListener('pointercancel',finish);
+}
+
 function initialize(){
-  wireEvents();wireGraphEvents();
+  wireEvents();wireGraphEvents();wireRoadEditor();
   try{
     renderer=new WorldRenderer($('world-canvas'),{onSelect:id=>selectBuilding(id)});
   }catch(err){try{renderer=new CanvasFallbackRenderer($('world-canvas'),{onSelect:id=>selectBuilding(id)});feedback('此环境禁用 WebGL2，已自动切换到软件三维预览。');}catch(fallbackError){$('viewer-error').hidden=false;$('viewer-error').textContent=`3D 视窗启动失败：${fallbackError.message}`;feedback(`浏览器图形接口不可用：${fallbackError.message}`,true);}}

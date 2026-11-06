@@ -1,10 +1,18 @@
+> **V0.5 新增**：可编辑道路中心线拓扑（稳定节点/路段 ID）、路口拖拽、有限支路、道路分段/合并、道路宽度编辑、多边形重算与约束校验回滚、局部地块 ID 保留，详见 [Road Topology V0.5](docs/ROAD_TOPOLOGY_V05.md)。
+>
 > **V0.4 新增**：斜向直线道路的角度/偏移/路幅控制，真实凸多边形道路裁切、非矩形地块、建筑多边形退界和树木几何避让。详见 [Road Geometry V0.4](docs/ROAD_GEOMETRY_V04.md)。
 
-# WorldCraft V0.4 — Natural-Language Procedural World Studio
+# WorldCraft V0.5 — Natural-Language Procedural World Studio
 
 以**自然语言 + 可编辑 PCG Graph + 确定性的空间规则**构建可持续修改的三维城市。首版空间链路已从基础建筑体量，扩展为 **道路网络 → 地块划分 → 功能分配 → 多类型建筑 / 多尺度公园 → 道路与地块协调的树木**。
 
-![WorldCraft V0.4 Spatial PCG Workspace](preview-spatial-v0.3.jpg)
+![WorldCraft V0.3 baseline spatial workspace (V0.5 road editor is not pictured)](preview-spatial-v0.3.jpg)
+
+## V0.5 操作入口
+
+在工作台底部打开「⌁ 道路编辑器」，先点击「转为可编辑道路网络」，再选择并拖拽道路节点、选路段调整路幅、拆分道路或添加支路。所有编辑在提交前经过场景几何校验，可能因产生无临路地块而被拒绝。
+
+通过自然语言指令可以尝试「将路口 N-0 向东移动 5m」「路段 E-0 宽度设为 12m」。自然语言仍是离线可审核的指令语法，**不是自主推理的通用 AI Agent**。
 
 ## 立即运行
 

@@ -175,7 +175,7 @@ export class WorldRenderer {
     // V0.3: road polygons, park parcels, and land-use boundaries are real PCG outputs.
     // Ground surfaces are drawn in separate height layers (not overlapping plan footprints).
     const parkColors={small:'#76a48d',medium:'#5e8d77',large:'#447d68'};
-    if(scene.geometryMode==='convex-polygons-v1'){
+    if(!!scene.geometryMode){
       const draw=(p,y,h,color,architect=false)=>this.createMesh(polygonPrism(p.vertices,p.x,p.z),[instance(p.x,y,p.z,1,h,1,color)],architect);
       for(const p of scene.parcels)draw(p,.14,.10,p.use==='residential'?'#526568':p.use==='commercial'?'#627579':p.use==='civic'?'#66716e':'#47695d');
       for(const road of scene.roads)draw(road,.25,.14,road.kind==='promenade'?'#9baba0':road.kind==='arterial'?'#9aa49b':'#26373e');
@@ -205,7 +205,7 @@ export class WorldRenderer {
         accents.push(instance(b.x,b.height+4.0,b.z,b.width*.16,4.5,b.depth*.16,'#baccc3'));
       }
     }
-    if(scene.geometryMode==='convex-polygons-v1'){
+    if(!!scene.geometryMode){
       for(const b of scene.buildings){
         const base=b.use==='commercial'?'#9b9d92':b.use==='civic'?'#c0a78e':PALETTE[Math.floor(b.tone*PALETTE.length)];
         const color=b.id===this.selected?'#e2bd7a':base;

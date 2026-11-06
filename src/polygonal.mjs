@@ -2,7 +2,9 @@
  * Geometry is kept in local metric X/Z coordinates; all clipping is on convex polygons.
  * Deliberate scope: straight through-corridors, not arbitrary clipped cul-de-sacs or GIS routing.
  */
+import {networkSegments} from './road-network.mjs';
 export const GEOMETRY_MODEL = 'convex-polygons-v1';
+export const EDITABLE_GEOMETRY_MODEL = 'editable-road-polygons-v1';
 const EPS=1e-7;
 const rn=n=>Math.round(n*1e6)/1e6;
 const dot=(p,n)=>p[0]*n[0]+p[1]*n[1];
@@ -141,6 +143,82 @@ function carveRoads(world,axes){
   }
   return {roads,blocks:land.map((p,i)=>spatial(`BL-${i}`,p))};
 }
+/** Clip each finite road footprint into mutually exclusive convex cells.
+ * This preserves exact set-difference and site tiling without an external polygon boolean library.
+ * Land fragments remain convex, with no fake bounding-box geometry.
+ */
+function subtractConvex(source,cutter){
+  let inside=source,outer=[];
+  const signed=cutter.reduce((s,p,i)=>s+cross(p,cutter[(i+1)%cutter.length]),0);
+  const sign=signed>=0?1:-1;
+  for(let i=0;i<cutter.length&&inside.length;i++){
+    const a=cutter[i],b=cutter[(i+1)%cutter.length],d=sub(b,a),n=[sign*d[1],-sign*d[0]],t=dot(a,n);
+    const outside=clipHalfPlane(inside,[-n[0],-n[1]],-t);
+    if(outside.length)outer.push(outside);
+    inside=clipHalfPlane(inside,n,t);
+  }
+  return {outside:outer,inside};
+}
+function stablePolygonId(prefix,poly){
+  const points=poly.map(p=>p.map(v=>Math.round(v*1000))).map(p=>p.join(':'));
+  const candidates=[];
+  for(let i=0;i<points.length;i++){
+    candidates.push([...points.slice(i),...points.slice(0,i)].join('|'));
+  }
+  const reverse=points.slice().reverse();
+  for(let i=0;i<reverse.length;i++)candidates.push([...reverse.slice(i),...reverse.slice(0,i)].join('|'));
+  const canon=candidates.sort()[0]||'';
+  let hash=2166136261;
+  for(let i=0;i<canon.length;i++)hash=Math.imul(hash^canon.charCodeAt(i),16777619)>>>0;
+  return `${prefix}-${hash.toString(36)}`;
+}
+function corridorPolygon(a,b,width){
+  const d=sub(b,a),len=Math.hypot(...d);
+  if(len<1e-6)return [];
+  const nx=-d[1]*width/(2*len),nz=d[0]*width/(2*len);
+  return [[rn(a[0]+nx),rn(a[1]+nz)],[rn(b[0]+nx),rn(b[1]+nz)],[rn(b[0]-nx),rn(b[1]-nz)],[rn(a[0]-nx),rn(a[1]-nz)]];
+}
+function mergedRoadSegments(network){
+  const parts=networkSegments(network),groups=[];
+  for(const e of parts){
+    const a=e.fromPoint,b=e.toPoint,d=sub(b,a),len=Math.hypot(...d),u=[d[0]/len,d[1]/len];
+    if(u[0]<-EPS||(Math.abs(u[0])<EPS&&u[1]<0)){u[0]*=-1;u[1]*=-1;}
+    const n=[-u[1],u[0]],off=dot(a,n);
+    let group=groups.find(g=>Math.abs(cross(g.u,u))<1e-5&&Math.abs(g.offset-off)<.002&&g.width===e.width&&g.kind===e.kind);
+    if(!group){group={u,n,offset:off,width:e.width,kind:e.kind,intervals:[]};groups.push(group);}
+    group.intervals.push({from:Math.min(dot(a,u),dot(b,u)),to:Math.max(dot(a,u),dot(b,u)),id:e.id});
+  }
+  const output=[];
+  for(const g of groups){
+    g.intervals.sort((a,b)=>a.from-b.from);
+    let current=null;
+    const flush=()=>{if(!current)return;const p=t=>[rn(g.u[0]*t+g.n[0]*g.offset),rn(g.u[1]*t+g.n[1]*g.offset)];
+      output.push({id:current.ids.sort().join('+'),kind:g.kind,width:g.width,from:p(current.from),to:p(current.to)});};
+    for(const interval of g.intervals){
+      if(!current){current={from:interval.from,to:interval.to,ids:[interval.id]};continue;}
+      if(interval.from<=current.to+1e-3){current.to=Math.max(current.to,interval.to);current.ids.push(interval.id);}
+      else{flush();current={from:interval.from,to:interval.to,ids:[interval.id]};}
+    }
+    flush();
+  }
+  return output;
+}
+function carveFiniteRoads(world,network){
+  const axes=mergedRoadSegments(network);
+  let remaining=[square(world.size)],roads=[];
+  for(const axis of axes){
+    const footprint=corridorPolygon(axis.from,axis.to,axis.width),next=[];
+    for(const poly of remaining){
+      const {outside,inside}=subtractConvex(poly,footprint);
+      next.push(...outside);
+      if(inside.length&&polygonArea(inside)>1e-4)roads.push({...spatial(stablePolygonId('R',inside),inside),axisId:axis.id,kind:axis.kind});
+    }
+    remaining=next.filter(p=>polygonArea(p)>1e-4);
+  }
+  const blocks=remaining.map(poly=>spatial(stablePolygonId('BL',poly),poly));
+  return {roads,blocks,axes};
+}
+
 function assignParcels(world,blocks,roads){
   const parcels=[];
   for(const block of blocks){
@@ -227,7 +305,10 @@ function createTrees(world,parcels,buildings,roads,rng){
 }
 /** Replaces rectangle-based downstream stages when a diagonal road is enabled. */
 export function generatePolygonCity(world,features,rng){
-  const axes=makeRoadAxes(world,features),roadGraph=createRoadTopology(axes,world.size),carved=carveRoads(world,axes);
+  const editing=!!world.roadNetwork;
+  const axes=editing?networkSegments(world.roadNetwork).map(e=>({id:e.id,from:e.fromPoint,to:e.toPoint,kind:e.kind,width:e.width})):makeRoadAxes(world,features);
+  const roadGraph=editing?createRoadTopology(axes,world.size):createRoadTopology(axes,world.size);
+  const carved=editing?carveFiniteRoads(world,world.roadNetwork):carveRoads(world,axes);
   const parcels=distributeUse(world,assignParcels(world,carved.blocks,carved.roads),features,rng);
   const buildings=createBuildings(world,parcels,features,rng);
   const parks=parcels.filter(p=>p.use==='park').map(p=>({...p,id:`P-${p.id}`,parcelId:p.id,kind:p.parkClass}));
@@ -241,7 +322,7 @@ export function generatePolygonCity(world,features,rng){
     parkSizes:{small:parks.filter(p=>p.kind==='small').length,medium:parks.filter(p=>p.kind==='medium').length,large:parks.filter(p=>p.kind==='large').length},
     treeCount:trees.length,streetTrees:trees.filter(t=>t.kind==='street').length,parkTrees:trees.filter(t=>t.kind==='park').length,
     buildingUses:{residential:buildings.filter(b=>b.use==='residential').length,commercial:buildings.filter(b=>b.use==='commercial').length,civic:buildings.filter(b=>b.use==='civic').length}};
-  return {geometryMode:GEOMETRY_MODEL,world,features,roads:carved.roads,roadLines:axes.map(a=>({id:`RL-${a.id}`,from:a.from,to:a.to,kind:a.kind})),roadGraph,
+  return {geometryMode:editing?EDITABLE_GEOMETRY_MODEL:GEOMETRY_MODEL,world,features,roads:carved.roads,roadLines:axes.map(a=>({id:`RL-${a.id}`,from:a.from,to:a.to,kind:a.kind})),roadGraph,
     blocks:carved.blocks,parcels,buildings,parks,trees,metrics,
     pipeline:[{stage:'roads',count:carved.roads.length},{stage:'parcels',count:parcels.length},{stage:'landuse',count:parcels.length},{stage:'buildings',count:buildings.length},{stage:'parks',count:parks.length},{stage:'trees',count:trees.length}]};
 }
