@@ -7,16 +7,16 @@ const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>'
 const pct=n=>`${Math.round(n*100)}%`;
 const fmt=(n,d=0)=>Number(n).toLocaleString('zh-CN',{maximumFractionDigits:d,minimumFractionDigits:d});
 const shortTime=()=>new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
-const storeKey='worldcraft-v0.2-session';
+const storeKey='worldcraft-v0.3-session';
 const demoPrompts=[
   '生成一座 400×400m 的未来城市，中心高外围低，保留中央开放空间',
   '将东侧建筑密度降低 30%，其他区域不变',
   '整体建筑高度提高 20%',
-  '扩大中央开放空间 20%'
+  '道路间距设为 80m'
 ];
 const pipelineNames=Object.entries(NODE_DEFS).map(([key,n])=>({key,name:n.cn}));
 let persisted;
-try{persisted=JSON.parse(localStorage.getItem(storeKey)||localStorage.getItem('worldcraft-v0.1-session')||'null');}catch(_){persisted=null;}
+try{persisted=JSON.parse(localStorage.getItem(storeKey)||localStorage.getItem('worldcraft-v0.2-session')||localStorage.getItem('worldcraft-v0.1-session')||'null');}catch(_){persisted=null;}
 let initialWorld;
 try{initialWorld=validateWorld(persisted?.world ?? {...DEFAULT_WORLD});}catch(_){initialWorld={...DEFAULT_WORLD};}
 let initialBaseline;
@@ -105,7 +105,7 @@ function renderButtons(){ $('undo-btn').disabled=state.past.length===0;$('redo-b
 function renderMetrics(){
   const m=state.scene.metrics;
   const content=[
-    ['BUILDINGS',fmt(m.total),'栋'],['AVG. HEIGHT',fmt(m.avgHeight,1),'m'],['SITE COVERAGE',pct(m.coverage),''],['PUBLIC PLAZA',fmt(m.plazaArea),'m²']
+    ['BUILDINGS',fmt(m.total),'栋'],['ROADS',fmt(m.roadSegments),'段'],['PARKS',fmt(m.parkCount),'块'],['TREES',fmt(m.treeCount),'棵'],['PARCELS',fmt(m.parcelCount),'块'],['PARK AREA',fmt(m.parkArea),'m²']
   ];
   $('metric-strip').innerHTML=content.map(([label,v,unit])=>`<div class="metric"><label>${label}</label><div class="metric-value">${v} <small>${unit}</small></div></div>`).join('');
 }
@@ -120,7 +120,12 @@ function renderTree(){
     <div class="tree-heading">DISTRICTS <span class="small-label">02</span></div>
     <button class="tree-item indent" data-action="focus-region" data-region="east"><span class="node-icon">▥</span>East District <span class="node-count">${m.east}</span></button>
     <button class="tree-item indent" data-action="focus-region" data-region="west"><span class="node-icon">▥</span>West District <span class="node-count">${m.west}</span></button>
-    <div class="tree-heading">SCENE OBJECTS <span class="small-label">${m.total}</span></div>
+    <div class="tree-heading">SPATIAL LAYERS</div>
+    <div class="tree-item indent"><span class="node-icon">═</span>道路网络 <span class="node-count">${m.roadSegments} 段</span></div>
+    <div class="tree-item indent"><span class="node-icon">▦</span>地块划分 <span class="node-count">${m.parcelCount} 块</span></div>
+    <div class="tree-item indent"><span class="node-icon">▤</span>多尺度公园 <span class="node-count">${m.parkCount} 块</span></div>
+    <div class="tree-item indent"><span class="node-icon">♣</span>沿街 / 园内树木 <span class="node-count">${m.treeCount} 棵</span></div>
+    <div class="tree-heading">BUILDINGS <span class="small-label">${m.total}</span></div>
     ${buildings.map(b=>`<button class="tree-item small-indent bld ${b.id===state.selectedId?'selected':''}" data-select="${b.id}"><span class="node-icon gray">▣</span><span>${b.id}</span><span class="secondary">${fmt(b.height)}m</span></button>`).join('')}
     <button class="tree-more" id="expand-buildings">${state.allBuildings?'收起对象列表':'查看全部 '+m.total+' 个建筑对象'} ${state.allBuildings?'↑':'↓'}</button>
   `;
@@ -141,20 +146,35 @@ function ruleControl(name,label,value,step,min,max,unit,track=1,description=''){
   const bar=Math.max(0,Math.min(100,value/track*100));
   return `<div class="setting"><div><div class="setting-label">${label}</div>${description?`<span class="detail">${description}</span>`:''}</div><div class="setting-control"><button class="increment" type="button" data-rule="${name}" data-diff="-${step}" aria-label="降低${label}">−</button><span class="setting-value">${suffix}</span><button class="increment" type="button" data-rule="${name}" data-diff="${step}" aria-label="提高${label}">+</button></div></div><div class="rule-track"><span style="width:${bar}%"></span></div>`;
 }
+const quickSpecs={
+  eastDensity:{min:0,max:1,step:.05,label:'东侧建筑密度',unit:'%'},westDensity:{min:0,max:1,step:.05,label:'西侧建筑密度',unit:'%'},
+  heightScale:{min:.2,max:3,step:.1,label:'高度倍率',unit:'×'},plazaRadius:{min:20,max:160,step:10,label:'中心绿心半径',unit:'m'},
+  roadSpacing:{min:60,max:160,step:20,label:'道路中心距',unit:'m'},roadWidth:{min:6,max:22,step:2,label:'道路宽度',unit:'m'},
+  parcelTargetWidth:{min:25,max:90,step:5,label:'地块目标宽度',unit:'m'},parkShare:{min:0,max:.65,step:.05,label:'公园地块比例',unit:'%'},
+  treeSpacing:{min:8,max:35,step:1,label:'行道树间距',unit:'m'},treeDensity:{min:0,max:1,step:.1,label:'树木生成概率',unit:'%'}
+};
 function bindRules(){
   document.querySelectorAll('[data-rule]').forEach(button=>button.addEventListener('click',()=>{
-    const key=button.dataset.rule,step=Number(button.dataset.diff);
-    const min=key.endsWith('Density')?0:key==='heightScale'?.2:20;
-    const max=key.endsWith('Density')?1:key==='heightScale'?3:Math.min(state.world.size/2-15,160);
-    const value=Math.round(Math.max(min,Math.min(max,state.world[key]+step))*1000)/1000;
-    const names={eastDensity:'东侧建筑密度',westDensity:'西侧建筑密度',heightScale:'整体建筑高度倍率',plazaRadius:'中央开放空间半径'};
-    setParameter(key,value,`${names[key]}调整为 ${key.endsWith('Density')?pct(value):key==='heightScale'?fmt(value,2)+'×':value+'m'}`);
+    const key=button.dataset.rule,spec=quickSpecs[key];if(!spec)return;
+    const value=Math.round(Math.max(spec.min,Math.min(spec.max,state.world[key]+Number(button.dataset.diff)))*1000)/1000;
+    const suffix=spec.unit==='%'?pct(value):spec.unit==='×'?fmt(value,2)+'×':value+'m';
+    setParameter(key,value,`${spec.label}调整为 ${suffix}`);
   }));
 }
 function renderRules(){
   const w=state.world;
-  $('global-rules').innerHTML=`<div class="setting inline"><span class="setting-label">场景面积</span><span class="pill">${w.size} × ${w.size}m</span></div><div class="setting inline"><span class="setting-label">随机种子</span><div class="setting-control"><span class="setting-value">#${w.seed}</span><button class="increment" id="reroll-seed" title="重新抽取布局随机种子">↻</button></div></div>${ruleControl('heightScale','高度倍率',w.heightScale,.1,.2,3,'×',3,'全城高度梯度')}${ruleControl('plazaRadius','中央开放空间半径',w.plazaRadius,10,20,160,'m',160)}`;
-  $('district-rules').innerHTML=`${ruleControl('eastDensity','东侧建筑密度',w.eastDensity,.05,0,1,'%',1,'基于确定性候选网格')}${ruleControl('westDensity','西侧建筑密度',w.westDensity,.05,0,1,'%',1,'不受东侧编辑影响')}`;
+  $('global-rules').innerHTML=`<div class="setting inline"><span class="setting-label">场景范围</span><span class="pill">${w.size} × ${w.size}m</span></div>
+    <div class="setting inline"><span class="setting-label">随机种子</span><div class="setting-control"><span class="setting-value">#${w.seed}</span><button class="increment" id="reroll-seed" title="重新抽取布局随机种子">↻</button></div></div>
+    ${ruleControl('roadSpacing','路网中心距',w.roadSpacing,20,60,160,'m',160)}
+    ${ruleControl('roadWidth','道路宽度',w.roadWidth,2,6,22,'m',22)}
+    ${ruleControl('parcelTargetWidth','地块目标宽度',w.parcelTargetWidth,5,25,90,'m',90)}
+    ${ruleControl('parkShare','公园地块比例',w.parkShare,.05,0,.65,'%',.65)}
+    ${ruleControl('treeSpacing','行道树间距',w.treeSpacing,1,8,35,'m',35)}
+    ${ruleControl('treeDensity','树木生成概率',w.treeDensity,.1,0,1,'%',1)}`;
+  $('district-rules').innerHTML=`${ruleControl('eastDensity','东侧建筑密度',w.eastDensity,.05,0,1,'%',1,'地块独立采样')}
+    ${ruleControl('westDensity','西侧建筑密度',w.westDensity,.05,0,1,'%',1,'东侧改动不影响西侧')}
+    ${ruleControl('heightScale','高度倍率',w.heightScale,.1,.2,3,'×',3)}
+    ${ruleControl('plazaRadius','中心绿心半径',w.plazaRadius,10,20,160,'m',160)}`;
   $('reroll-seed').addEventListener('click',()=>setParameter('seed',state.world.seed+1,`重新抽取随机种子 #${state.world.seed+1}`));
   bindRules();
 }
@@ -179,6 +199,9 @@ function renderComparison(){
     <div class="tiny-progress"><span style="width:${Math.min(c.total/Math.max(1,b.total)*75,100)}%"></span></div>
     <div class="delta-row"><span>东侧建筑数量</span><span>${fmt(b.east)} → ${fmt(c.east)} &nbsp; ${d(b.east,c.east)}</span></div>
     <div class="tiny-progress"><span style="width:${Math.min(c.east/Math.max(1,b.east)*75,100)}%"></span></div>
+    <div class="delta-row"><span>道路段数</span><span>${fmt(b.roadSegments)} → ${fmt(c.roadSegments)}</span></div>
+    <div class="delta-row"><span>公园地块</span><span>${fmt(b.parkCount)} → ${fmt(c.parkCount)} (${fmt(c.parkArea)}㎡)</span></div>
+    <div class="delta-row"><span>树木数量</span><span>${fmt(b.treeCount)} → ${fmt(c.treeCount)}</span></div>
     <div class="delta-row"><span>平均建筑高度</span><span>${fmt(b.avgHeight,1)} → ${fmt(c.avgHeight,1)}m</span></div>
     <div class="delta-row"><span>平均高度变化</span><strong class="${pctChange(b.avgHeight,c.avgHeight)<0?'negative':'positive'}">${pctChange(b.avgHeight,c.avgHeight)>=0?'+':''}${fmt(pctChange(b.avgHeight,c.avgHeight),1)}%</strong></div>
     <div class="delta-row"><span>建筑变化</span><strong>${compareScenes(state.baselineScene,state.scene).removed} 删除 · ${compareScenes(state.baselineScene,state.scene).modified} 修改</strong></div>
@@ -209,7 +232,7 @@ async function importScene(file){
 function wireEvents(){
   $('command-form').addEventListener('submit',e=>{e.preventDefault();runInstruction($('command-input').value);});
   $('command-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('command-form').requestSubmit();}});
-  $('prompt-examples').innerHTML=demoPrompts.map((p,i)=>`<button class="prompt-chip" type="button" data-example="${i}">${['生成示例城市','东侧密度 −30%','整体高度 +20%','开放空间 +20%'][i]}</button>`).join('');
+  $('prompt-examples').innerHTML=demoPrompts.map((p,i)=>`<button class="prompt-chip" type="button" data-example="${i}">${['生成示例城市','东侧密度 −30%','整体高度 +20%','道路间距 80m'][i]}</button>`).join('');
   $('prompt-examples').querySelectorAll('[data-example]').forEach(btn=>btn.addEventListener('click',()=>{const value=demoPrompts[Number(btn.dataset.example)];$('command-input').value=value;runInstruction(value);}));
   $('undo-btn').addEventListener('click',undo);$('redo-btn').addEventListener('click',redo);
   $('camera-reset').addEventListener('click',()=>renderer?.resetCamera());
@@ -227,6 +250,19 @@ function wireEvents(){
   });
 }
 const graphParams={
+  roadSpacing:{name:'道路中心距',min:60,max:160,step:20,unit:'m'},
+  roadWidth:{name:'道路宽度',min:6,max:22,step:1,unit:'m'},
+  parcelTargetWidth:{name:'地块目标宽度',min:25,max:90,step:5,unit:'m'},
+  parkShare:{name:'公园地块比例',min:0,max:.65,step:.05,unit:'%'},
+  parkSmallMaxArea:{name:'小公园面积上限㎡',min:200,max:3000,step:100,unit:'㎡'},
+  parkLargeMinArea:{name:'大型公园面积下限㎡',min:3000,max:12000,step:100,unit:'㎡'},
+  buildingSetback:{name:'建筑退界',min:3,max:10,step:1,unit:'m'},
+  treeSpacing:{name:'行道树间距',min:8,max:35,step:1,unit:'m'},
+  treeRoadSetback:{name:'树木距道路边界',min:2.5,max:8,step:.5,unit:'m'},
+  treeDensity:{name:'树木采样概率',min:0,max:1,step:.05,unit:'%'},
+  parkTreeSpacing:{name:'园内树木间距',min:8,max:35,step:1,unit:'m'},
+  treeCrownRadius:{name:'树冠半径',min:.8,max:2.5,step:.1,unit:'m'},
+  treeBuildingClearance:{name:'树冠距建筑净距',min:0,max:5,step:.2,unit:'m'},
   size:{name:'世界尺寸',min:200,max:800,step:20,unit:'m'},
   seed:{name:'随机种子',min:0,max:1000000000,step:1,unit:''},
   plazaRadius:{name:'开放空间半径',min:20,max:160,step:5,unit:'m'},
@@ -239,12 +275,14 @@ const GRAPH_NODE_W=154;
 function graphNode(id){return state.graph.nodes.find(n=>n.id===id);}
 function renderGraph(){
   const evaluation=evaluateGraph(state.graph),active=new Set(evaluation.path);
+  const graphWidth=Math.max(1500,...state.graph.nodes.map(n=>n.x+190));
+  $('graph-board').style.width=graphWidth+'px';$('graph-wires').setAttribute('width',graphWidth);$('graph-wires').setAttribute('viewBox',`0 0 ${graphWidth} 280`);
   const badge=$('graph-status');badge.textContent=evaluation.valid?'● '+evaluation.message:'⚠ '+evaluation.message;badge.classList.toggle('invalid',!evaluation.valid);
   $('graph-count').textContent=`${state.graph.nodes.length} MODULES / ${evaluation.path.length} ACTIVE`;
   $('graph-hint').textContent=state.graphPending?`已选择 ${NODE_DEFS[state.graphPending].cn} 输出端口，请点击目标节点左侧输入端口`:'选择节点 → 编辑参数 / 点击输出圆点 → 再点击输入圆点建立连接';
   $('graph-nodes').innerHTML=state.graph.nodes.map(n=>{
     const def=NODE_DEFS[n.type],inPath=active.has(n.id);
-    const value={seed:`#${state.world.seed} · ${state.world.size}m`,grid:'20m × 20m',plaza:`半径 ${state.world.plazaRadius}m`,promenade:`宽度 ${state.world.promenadeWidth}m`,density:`东 ${pct(state.world.eastDensity)} / 西 ${pct(state.world.westDensity)}`,height:`高度 ×${fmt(state.world.heightScale,2)}`,instances:`${fmt(state.scene.metrics.total)} 栋 · 3D`}[n.type];
+    const value={seed:`#${state.world.seed} · ${state.world.size}m`,promenade:`主街 ${state.world.promenadeWidth}m`,roads:`${state.scene.metrics.roadSegments} 段 · 间距 ${state.world.roadSpacing}m`,parcels:`${state.scene.metrics.parcelCount} 块 · 目标 ${state.world.parcelTargetWidth}m`,plaza:`半径 ${state.world.plazaRadius}m`,landuse:`${state.scene.metrics.parkCount} 公园地块`,density:`东 ${pct(state.world.eastDensity)} / 西 ${pct(state.world.westDensity)}`,height:`高度 ×${fmt(state.world.heightScale,2)}`,buildings:`${state.scene.metrics.total} 栋 · 3 种功能`,parks:`${state.scene.metrics.parkSizes.small}/${state.scene.metrics.parkSizes.medium}/${state.scene.metrics.parkSizes.large} 小/中/大`,trees:`${state.scene.metrics.treeCount} 棵 · 避让检查`,instances:`道路 + 地块 + 建筑 + 公园 + 树`}[n.type];
     return `<div class="graph-node ${inPath?'active':'dormant'} ${state.selectedNode===n.id?'selected':''}" data-node="${n.id}" style="left:${n.x}px;top:${n.y}px">
       ${n.type!=='seed'?`<button type="button" class="graph-port input" data-port="in" data-node-id="${n.id}" aria-label="${def.cn} 输入端口"></button>`:''}
       ${n.type!=='instances'?`<button type="button" class="graph-port output ${state.graphPending===n.id?'pending':''}" data-port="out" data-node-id="${n.id}" aria-label="${def.cn} 输出端口"></button>`:''}
@@ -268,7 +306,7 @@ function renderGraphWires(active=new Set(evaluateGraph(state.graph).path)){
 }
 function renderGraphInspector(){
   let selected=graphNode(state.selectedNode);
-  if(!selected){selected=state.graph.nodes.find(n=>n.type==='density');state.selectedNode=selected?.id??null;}
+  if(!selected){selected=state.graph.nodes.find(n=>n.type==='roads');state.selectedNode=selected?.id??null;}
   if(!selected)return;
   const def=NODE_DEFS[selected.type],diagnosis=evaluateGraph(state.graph),active=diagnosis.path.includes(selected.id);
   const controls=def.params.map(key=>{
@@ -363,7 +401,7 @@ function parseGraphLanguage(text){
   const s=String(text).toLowerCase().replace(/\s/g,'');
   const enabled=/开启|启用|恢复|添加|接入|enable|activate/.test(s),disabled=/关闭|禁用|取消|移除|去掉|删除|绕过|disable|bypass/.test(s);
   if(enabled===disabled)return null;
-  const type=/开放空间|广场|plaza/.test(s)?'plaza':/廊道|通道|promenade/.test(s)?'promenade':/高度梯度|高度场|heightfield/.test(s)?'height':null;
+  const type=/开放空间|中心绿心|广场|plaza/.test(s)?'plaza':/主街|廊道|promenade/.test(s)?'promenade':/高度梯度|高度场|heightfield/.test(s)?'height':null;
   return type?{type,enabled}:null;
 }
 

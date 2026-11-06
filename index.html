@@ -16,7 +16,7 @@
         <div class="brandtext"><strong>WorldCraft</strong><span>PROCEDURAL WORLD STUDIO</span></div>
       </div>
       <span class="top-divider"></span>
-      <div class="breadcrumb"><span>Workspace</span><span class="chevron">/</span><strong id="project-name">Coastal Future City</strong><span class="version">V0.2</span></div>
+      <div class="breadcrumb"><span>Workspace</span><span class="chevron">/</span><strong id="project-name">Coastal Future City</strong><span class="version">V0.3</span></div>
       <div class="toolbar-actions">
         <span class="status"><i></i><span>LOCAL ENGINE</span></span>
         <button class="btn ghost small" id="undo-btn" title="撤销 (Ctrl/⌘ + Z)">↶ <span>撤销</span></button>
@@ -28,7 +28,7 @@
     </header>
     <main class="workspace">
       <aside class="sidebar scene-panel">
-        <div class="sidebar-heading"><div><div class="eyebrow">SCENE GRAPH</div><h2>世界结构</h2></div><span class="muted-icon">☷</span></div>
+        <div class="sidebar-heading"><div><div class="eyebrow">SPATIAL LAYERS</div><h2>世界结构</h2></div><span class="muted-icon">☷</span></div>
         <div class="scene-tree" id="scene-tree"></div>
         <div class="sidebar-bottom">
           <div class="eyebrow">GENERATION PIPELINE</div>
@@ -56,11 +56,11 @@
           <div class="graph-pane" id="graph-pane">
             <div class="graph-toolbar"><span>拖动节点布局 · 点击输出端口再点击输入端口以重连 · 断开的模块不参与生成</span><div class="graph-actions"><select id="graph-add-type" aria-label="选择要添加的模块"><option value="">添加模块…</option></select><button type="button" id="graph-add-btn" class="graph-action">＋ 添加</button><button type="button" id="graph-reset-btn" class="graph-action">恢复默认连接</button></div></div>
             <div class="graph-scroll" id="graph-scroll"><div class="graph-board" id="graph-board"><svg id="graph-wires" width="1440" height="260" viewBox="0 0 1440 260" aria-hidden="true"></svg><div id="graph-nodes"></div></div></div>
-            <div class="graph-footer"><span id="graph-hint">点击节点查看规则 · 拖动标题调整布局</span><span id="graph-count">7 MODULES</span></div>
+            <div class="graph-footer"><span id="graph-hint">点击节点查看规则 · 拖动标题调整布局</span><span id="graph-count">12 MODULES</span></div>
           </div>
           <section class="command-console" id="command-pane" hidden>
           <div class="console-header"><div><span class="sparkle">✦</span><strong>World Command</strong><span class="console-kicker">用自然语言修改生成规则</span></div><span class="engine-badge">规则解析 · 离线</span></div>
-          <form id="command-form" class="command-form"><textarea id="command-input" rows="2" placeholder="例如：将东侧建筑密度降低 30%，其他区域不变" spellcheck="false"></textarea><button class="send-btn" type="submit" id="send-btn" title="执行指令">↗</button></form>
+          <form id="command-form" class="command-form"><textarea id="command-input" rows="2" placeholder="例如：道路间距设为 80m；公园比例设为 30%" spellcheck="false"></textarea><button class="send-btn" type="submit" id="send-btn" title="执行指令">↗</button></form>
           <div class="prompt-examples" id="prompt-examples"></div>
           <div class="command-feedback" id="command-feedback" role="status" aria-live="polite"><span class="feedback-icon">✓</span><span>城市已生成。选择一项规则或输入自然语言指令开始迭代。</span></div>
           </section>

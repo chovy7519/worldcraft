@@ -154,26 +154,24 @@ export class WorldRenderer {
     const s=scene.world.size;
     this.createMesh(this.boxGeometry,[instance(0,-2.8,0,s+45,5.6,s+45,'#293a42'),instance(0,-5.7,0,s+56,2,s+56,'#19272f')]);
     this.createMesh(this.boxGeometry,[instance(0,0.06,0,s,.12,s,'#4e5f61')]);
-    // subtle paving lines, used as a metric reference rather than a rigid street plan.
-    const grid=[];
-    for(let n=-s/2;n<=s/2;n+=20){
-      grid.push(instance(n,0.155,0,.20,.06,s,'#64736f'));
-      grid.push(instance(0,0.155,n,s,.06,.20,'#64736f'));
-    }
-    this.createMesh(this.boxGeometry,grid);
-    const plazaR=scene.world.plazaRadius;
-    if(scene.features?.plaza!==false) this.createMesh(this.cylinderGeometry,[
-      instance(0,.29,0,plazaR*2.25,.24,plazaR*2.25,'#43635c'),
-      instance(0,.45,0,plazaR*1.80,.24,plazaR*1.80,'#7c8d83'),
-      instance(0,.58,0,plazaR*1.38,.18,plazaR*1.38,'#aab7ac'),
-      instance(0,.70,0,20,.45,20,'#657f7b'),
-      instance(0,1.04,0,13,.22,13,'#a8bfaf')
-    ]);
-    // A diagonal landscape corridor leading to the civic clearing.
-    if(scene.features?.promenade!==false) this.createMesh(this.boxGeometry,[instance(-65,.32,-80,scene.world.promenadeWidth*1.43,.21,172,'#82958a',-.33)]);
+    // V0.3: road polygons, park parcels, and land-use boundaries are real PCG outputs.
+    // Ground surfaces are drawn in separate height layers (not overlapping plan footprints).
+    const parcelSurfaces=scene.parcels.map(p=>instance(p.x,.14,p.z,p.width,.10,p.depth,
+      p.use==='residential'?'#526568':p.use==='commercial'?'#627579':p.use==='civic'?'#66716e':'#47695d'));
+    this.createMesh(this.boxGeometry,parcelSurfaces);
+    this.createMesh(this.boxGeometry,scene.roads.map(r=>instance(r.x,.25,r.z,r.width,.14,r.depth,
+      r.kind==='promenade'?'#9baba0':'#26373e')));
+    const parkColors={small:'#76a48d',medium:'#5e8d77',large:'#447d68'};
+    this.createMesh(this.boxGeometry,scene.parks.map(p=>instance(p.x,.35,p.z,p.width-.3,.18,p.depth-.3,parkColors[p.kind])));
+    // Readable but non-intrusive central route marking (within existing road polygons).
+    const markings=scene.roadLines.filter(r=>r.kind==='promenade').map(r=>{
+      const x=(r.from[0]+r.to[0])/2,z=(r.from[1]+r.to[1])/2;
+      return instance(x,.35,z,r.from[0]===r.to[0]?.18:Math.abs(r.to[0]-r.from[0]),.03,r.from[1]===r.to[1]?.18:Math.abs(r.to[1]-r.from[1]),'#e0e6d4');
+    });
+    this.createMesh(this.boxGeometry,markings);
     const bodies=[],tops=[],terraces=[],accents=[];
     for(const b of scene.buildings){
-      const base=rgb(PALETTE[Math.floor(b.tone*PALETTE.length)]);
+      const base=rgb(b.use==='commercial'?'#9b9d92':b.use==='civic'?'#c0a78e':PALETTE[Math.floor(b.tone*PALETTE.length)]);
       const color=b.id===this.selected?rgb('#e2bd7a'):base;
       bodies.push(instance(b.x,b.height/2+.9,b.z,b.width,b.height,b.depth,color));
       tops.push(instance(b.x,b.height+1.6,b.z,b.width+1.0,1.4,b.depth+1.0,mix(base,rgb('#e3ded0'),.22)));
@@ -285,7 +283,7 @@ export class CanvasFallbackRenderer {
     const A=px(x-w,.3,z-d),B=px(x+w,.3,z-d),C=px(x+w,.3,z+d),D=px(x-w,.3,z+d);
     const E=px(x-w,h,z-d),F=px(x+w,h,z-d),G=px(x+w,h,z+d),H=px(x-w,h,z+d);
     if([A,B,C,D,E,F,G,H].some(q=>!q))return;
-    const base=PALETTE[Math.floor(b.tone*PALETTE.length)];
+    const base=b.use==='commercial'?'#9b9d92':b.use==='civic'?'#c0a78e':PALETTE[Math.floor(b.tone*PALETTE.length)];
     const color=b.id===this.selected?'#ddbb79':base;
     const brighten=(hex,delta)=>{
       const raw=hex.replace('#','');const cols=[0,2,4].map(p=>parseInt(raw.slice(p,p+2),16));
@@ -329,16 +327,19 @@ export class CanvasFallbackRenderer {
     const s=world.size/2;
     this.polygon([p(-s-28,-4,-s-28),p(s+28,-4,-s-28),p(s+28,-4,s+28),p(-s-28,-4,s+28)],'#182831');
     this.polygon([p(-s,0,-s),p(s,0,-s),p(s,0,s),p(-s,0,s)],'#425759','#708382');
-    for(let v=-s;v<=s;v+=20){
-      this.line([p(v,.2,-s),p(v,.2,s)],'#7d95883b',.9);
-      this.line([p(-s,.2,v),p(s,.2,v)],'#7d95883b',.9);
+    // All ground geometry is drawn from one shared PCG scene schema.
+    for(const parcel of this.scene.parcels){
+      const b=parcel.bounds;
+      const color=parcel.use==='residential'?'#4e6466':parcel.use==='commercial'?'#72847e':parcel.use==='civic'?'#7e8074':'#4d6d60';
+      this.polygon([p(b.x0,.14,b.z0),p(b.x1,.14,b.z0),p(b.x1,.14,b.z1),p(b.x0,.14,b.z1)],color,'#9ab2a02b');
     }
-    const circle=(radius,y)=>Array.from({length:56},(_,i)=>p(Math.cos(i/56*Math.PI*2)*radius,y,Math.sin(i/56*Math.PI*2)*radius));
-    if(this.scene.features?.plaza!==false){
-      this.polygon(circle(world.plazaRadius*1.13,.3),'#496c60');
-      this.polygon(circle(world.plazaRadius*.91,.4),'#879b8d');
-      this.polygon(circle(world.plazaRadius*.70,.6),'#a4b6a7');
-      this.polygon(circle(10,.85),'#5e877a');
+    for(const road of this.scene.roads){
+      const b=road.bounds;
+      this.polygon([p(b.x0,.27,b.z0),p(b.x1,.27,b.z0),p(b.x1,.27,b.z1),p(b.x0,.27,b.z1)],road.kind==='promenade'?'#a1afa4':'#273942');
+    }
+    for(const park of this.scene.parks){
+      const b=park.bounds,colors={small:'#75a48a',medium:'#55876f',large:'#3e775f'};
+      this.polygon([p(b.x0,.38,b.z0),p(b.x1,.38,b.z0),p(b.x1,.38,b.z1),p(b.x0,.38,b.z1)],colors[park.kind]);
     }
     // Draw individual solids back to front, preserving depth cues in 2D fallback.
     const items=[...this.scene.buildings.map(q=>({kind:'building',value:q,x:q.x,z:q.z})),...this.scene.trees.map(q=>({kind:'tree',value:q,x:q.x,z:q.z}))];

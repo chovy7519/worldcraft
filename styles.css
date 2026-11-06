@@ -56,3 +56,10 @@
 /* Keep viewport and graph dock inside the desktop grid track. */
 @media(min-width:701px){.workspace{grid-template-rows:minmax(0,1fr);overflow:hidden}.center-column{min-height:0;max-height:100%;overflow:hidden}.inspector-panel{min-height:0}}
 .graph-board{height:210px}
+
+/* V0.3 spatial pipeline UI */
+.metric-strip{height:79px;min-height:79px;grid-template-columns:repeat(6,minmax(0,1fr))}
+.metric{padding:2px 11px}.metric .metric-value{font-size:17px}
+.sidebar-bottom{max-height:320px;overflow:auto;padding:12px 17px}.pipeline{gap:5px;margin-top:10px}.pipeline-step{font-size:10px}
+.graph-board{width:2440px}.graph-scroll{scroll-behavior:smooth}
+@media(max-width:1150px){.metric .metric-value{font-size:14px}.metric{padding:2px 5px}.sidebar-bottom{max-height:240px}}

@@ -1,5 +1,6 @@
-/** WorldCraft V0.1 — deterministic, dependency-free scene schema and PCG logic. */
-export const SCHEMA_VERSION = 1;
+/** WorldCraft V0.3 — stable city rules, deterministic spatial pipeline. */
+import {generateSpatialCity} from './spatial.mjs';
+export const SCHEMA_VERSION = 2;
 export const DEFAULT_WORLD = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
   name: 'Coastal Future City',
@@ -10,6 +11,20 @@ export const DEFAULT_WORLD = Object.freeze({
   heightScale: 1,
   plazaRadius: 60,
   promenadeWidth: 10.5,
+  roadSpacing: 100,
+  roadWidth: 10,
+  parcelTargetWidth: 42,
+  parkShare: 0.20,
+  parkSmallMaxArea: 1500,
+  parkLargeMinArea: 3400,
+  buildingSetback: 7,
+  treeSpacing: 15,
+  treeRoadSetback: 4,
+  treeDensity: 0.72,
+  parkTreeSpacing: 15,
+  treeCrownRadius: 1.5,
+  treeBuildingClearance: 1.3,
+  extensions: Object.freeze({terrain:null,hydrology:null}),
   style: 'future'
 });
 
@@ -26,12 +41,12 @@ export function randomFor(seed, x, z, channel = 0) {
 
 export function validateWorld(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('无效的世界文件');
-  if (input.schemaVersion !== SCHEMA_VERSION) throw new Error('不支持此世界文件版本');
+  if (![1,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
   const world = {};
   for (const key of Object.keys(DEFAULT_WORLD)) {
-    world[key] = input[key] ?? DEFAULT_WORLD[key];
+    world[key] = key==='schemaVersion' ? SCHEMA_VERSION : (input[key] ?? DEFAULT_WORLD[key]);
   }
-  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius','promenadeWidth'];
+  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius','promenadeWidth','roadSpacing','roadWidth','parcelTargetWidth','parkShare','parkSmallMaxArea','parkLargeMinArea','buildingSetback','treeSpacing','treeRoadSetback','treeDensity','parkTreeSpacing','treeCrownRadius','treeBuildingClearance'];
   for (const key of nums) if (typeof world[key] !== 'number' || !Number.isFinite(world[key])) throw new Error(`参数 ${key} 必须为有限数字`);
   if (!Number.isInteger(world.seed) || world.seed < 0 || world.seed > 1000000000) throw new Error('随机种子必须是 0–1,000,000,000 的整数');
   if (!Number.isInteger(world.size) || world.size < 200 || world.size > 800 || world.size % 20 !== 0) throw new Error('世界尺寸应为 200–800m 且为 20 的倍数');
@@ -39,83 +54,25 @@ export function validateWorld(input) {
   if (world.heightScale < 0.2 || world.heightScale > 3) throw new Error('高度倍率应为 0.2–3');
   if (world.promenadeWidth < 4 || world.promenadeWidth > 28) throw new Error('公共廊道宽度应为 4–28m');
   if (world.plazaRadius < 20 || world.plazaRadius > Math.min(world.size/2-15,160)) throw new Error('中央开放空间半径不在允许范围内');
+  if(!world.extensions||typeof world.extensions!=='object'||Array.isArray(world.extensions)||Object.keys(world.extensions).some(k=>!['terrain','hydrology'].includes(k))||world.extensions.terrain!=null||world.extensions.hydrology!=null)throw Error('地形 / 水系扩展接口已预留，但本版本尚不接受扩展数据');
+  world.extensions={terrain:null,hydrology:null};
   if (typeof world.name !== 'string' || world.name.length > 120) throw new Error('世界名称无效');
-  if (world.style !== 'future') throw new Error('当前版本仅支持 future 风格');
+  if(!Number.isInteger(world.roadSpacing)||world.roadSpacing<60||world.roadSpacing>160||world.roadSpacing%20!==0)throw Error('道路间距须在 60–160m，且为 20m 的倍数');
+  if(world.roadWidth<6||world.roadWidth>22||world.roadWidth>=world.roadSpacing/3)throw Error('道路宽度须为 6–22m 且小于道路间距的三分之一');
+  if(world.parcelTargetWidth<25||world.parcelTargetWidth>90)throw Error('地块目标尺度须为 25–90m');
+  if(world.parkShare<0||world.parkShare>0.65)throw Error('公园地块比例须为 0–65%');
+  if(world.parkSmallMaxArea<200||world.parkSmallMaxArea>=world.parkLargeMinArea||world.parkLargeMinArea>18000)throw Error('公园面积分级无效');
+  if(world.buildingSetback<3||world.buildingSetback>10)throw Error('建筑退界须为 3–10m');
+  if(world.treeSpacing<8||world.treeSpacing>35||world.parkTreeSpacing<8||world.parkTreeSpacing>35)throw Error('树木间距须为 8–35m');
+  if(world.treeRoadSetback<2.5||world.treeRoadSetback>8)throw Error('行道树距道路边界应为 2.5–8m');
+  if(world.treeDensity<0||world.treeDensity>1)throw Error('树木覆盖概率须为 0–1');
+  if(world.treeCrownRadius<.8||world.treeCrownRadius>2.5||world.treeBuildingClearance<0||world.treeBuildingClearance>5)throw Error('树冠或树木净距参数无效');
+  if(world.style !== 'future') throw new Error('当前版本仅支持 future 风格');
   return world;
 }
 
 export function generateCity(worldInput, features = {}) {
-  const world = validateWorld(worldInput);
-  const active={plaza:features.plaza!==false,promenade:features.promenade!==false,height:features.height!==false};
-  const buildings = [], trees = [];
-  const cols = world.size / 20;
-  let eastEligible = 0, westEligible = 0;
-  for (let row=0;row<cols;row++) {
-    for (let col=0;col<cols;col++) {
-      const bx = -world.size/2 + (col+0.5)*20;
-      const bz = -world.size/2 + (row+0.5)*20;
-      const jitterX = (randomFor(world.seed,col,row,1)-0.5)*4.8;
-      const jitterZ = (randomFor(world.seed,col,row,2)-0.5)*4.8;
-      const x = bx + jitterX, z = bz+jitterZ;
-      const dist = Math.hypot(x,z);
-      const inPlaza = active.plaza && dist < world.plazaRadius + 10;
-      // A gentle, rotated public-space promenade on the south-west axis.
-      const inPromenade = active.promenade && z > -world.size*0.35 && z < world.size*0.10 && Math.abs(x-0.34*z+42)<world.promenadeWidth;
-      const east = bx >= 0;
-      const probability = east ? world.eastDensity : world.westDensity;
-      const eligible = !inPlaza && !inPromenade;
-      if (eligible) east ? eastEligible++ : westEligible++;
-      const occupancy = randomFor(world.seed,col,row,3);
-      if (eligible && occupancy < probability) {
-        const centerWeight = Math.pow(Math.max(0,1-dist/(world.size*0.76)),1.55);
-        const hNoise = randomFor(world.seed,col,row,4);
-        const height = (12 + 98*centerWeight*(0.65+hNoise*0.67))*(active.height?world.heightScale:1);
-        const width = 11.0 + randomFor(world.seed,col,row,5)*4.8;
-        const depth = 11.0 + randomFor(world.seed,col,row,6)*4.8;
-        const typ = randomFor(world.seed,col,row,7);
-        buildings.push({
-          id: `B-${String(row).padStart(2,'0')}-${String(col).padStart(2,'0')}`,
-          row, col, region: east ? '东侧' : '西侧', x, z,
-          width, depth, height, type: typ>0.85?'terraced':typ>0.56?'tower':'slab',
-          tone: randomFor(world.seed,col,row,8),
-          footprint: width*depth
-        });
-      } else if (!inPlaza && randomFor(world.seed,col,row,9) < (eligible ? 0.63 : 0.36)) {
-        const n = 1 + (randomFor(world.seed,col,row,10)>0.66?1:0);
-        for (let t=0;t<n;t++) trees.push({
-          id:`T-${row}-${col}-${t}`,
-          x:bx+(randomFor(world.seed,col,row,11+t)*2-1)*6,
-          z:bz+(randomFor(world.seed,col,row,13+t)*2-1)*6,
-          height:3.2+randomFor(world.seed,col,row,15+t)*3.5
-        });
-      }
-    }
-  }
-  // Plaza landscape: deterministic trees around the perimeter, outside the inner clearing.
-  for (let i=0;i<(active.plaza?52:0);i++) {
-    const theta = 2*Math.PI*(i/52)+(randomFor(world.seed,i,1,16)-.5)*0.10;
-    const r = world.plazaRadius * (0.86+randomFor(world.seed,i,2,16)*0.24);
-    const x=Math.cos(theta)*r,z=Math.sin(theta)*r;
-    if (Math.abs(x-0.34*z+42)>12) trees.push({id:`P-${i}`,x,z,height:3.4+randomFor(world.seed,i,3,16)*3.3});
-  }
-  const eastBuildings = buildings.filter(b=>b.region==='东侧');
-  const westBuildings = buildings.filter(b=>b.region==='西侧');
-  const footprint = buildings.reduce((sum,b)=>sum+b.footprint,0);
-  const totalHeight = buildings.reduce((sum,b)=>sum+b.height,0);
-  const maxHeight = buildings.reduce((m,b)=>Math.max(m,b.height),0);
-  return {
-    world, buildings, trees, features:active,
-    metrics: {
-      total: buildings.length,
-      east: eastBuildings.length,
-      west: westBuildings.length,
-      eastEligible, westEligible,
-      coverage: footprint / (world.size*world.size),
-      avgHeight: buildings.length ? totalHeight/buildings.length : 0,
-      maxHeight,
-      plazaArea: active.plaza ? Math.PI*world.plazaRadius*world.plazaRadius : 0
-    }
-  };
+  return generateSpatialCity(validateWorld(worldInput),features,randomFor);
 }
 
 const cnNumeral = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
@@ -150,6 +107,22 @@ export function parseCommand(text) {
     let size=sizeMatch?Number(sizeMatch[1]):400;
     if(size<200 || size>800 || size%20!==0) return {type:'error',message:'世界尺寸须在 200–800m 之间，且为 20m 的倍数。'};
     return {type:'generate',size,description:`生成 ${size}×${size}m 程序化未来城市`};
+  }
+  const spatialParamRules=[
+    {terms:['道路间距','路网间距','road spacing'],key:'roadSpacing',unit:'m'},
+    {terms:['道路宽度','路幅宽度','road width'],key:'roadWidth',unit:'m'},
+    {terms:['地块宽度','地块尺度','地块目标','parcel size'],key:'parcelTargetWidth',unit:'m'},
+    {terms:['公园比例','公园占比','公园地块比例','park share'],key:'parkShare',unit:'%'},
+    {terms:['行道树间距','街道树间距','street tree spacing'],key:'treeSpacing',unit:'m'},
+    {terms:['公园树间距','公园树木间距','park tree spacing'],key:'parkTreeSpacing',unit:'m'},
+    {terms:['树木密度','树木覆盖概率','tree density'],key:'treeDensity',unit:'%'},
+    {terms:['建筑退界','建筑退让','building setback'],key:'buildingSetback',unit:'m'}
+  ];
+  for(const rule of spatialParamRules){
+    if(!has(s,rule.terms))continue;
+    const number=rule.unit==='%'?pct:(numMatch?Number(numMatch[1]):Number((s.match(/(\d+(?:\.\d+)?)\s*(?:米|m)/)||[])[1]));
+    if(!Number.isFinite(number))return {type:'error',message:`请指定${rule.terms[0]}的数值，例如「${rule.terms[0]}设为 ${rule.unit==='%'?'30%':'80m'}」。`};
+    return {type:'set',key:rule.key,value:number,description:`${rule.terms[0]}设为 ${rule.unit==='%'?Math.round(number*100)+'%':number+'m'}`};
   }
   if (has(s,['随机种子','seed'])) {
     const seed=(s.match(/(?:种子|seed)[^\d]*(\d+)/)||[])[1];
@@ -220,6 +193,6 @@ export function makeExport(world,history=[]) {
 }
 
 export function readExport(doc) {
-  if(!doc||doc.format!=='WorldCraft'||doc.version!==SCHEMA_VERSION) throw new Error('不是兼容的 WorldCraft 场景文件');
+  if(!doc||doc.format!=='WorldCraft'||![1,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
   return validateWorld(doc.world);
 }
