@@ -9,6 +9,7 @@ export const DEFAULT_WORLD = Object.freeze({
   westDensity: 0.84,
   heightScale: 1,
   plazaRadius: 60,
+  promenadeWidth: 10.5,
   style: 'future'
 });
 
@@ -30,20 +31,22 @@ export function validateWorld(input) {
   for (const key of Object.keys(DEFAULT_WORLD)) {
     world[key] = input[key] ?? DEFAULT_WORLD[key];
   }
-  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius'];
+  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius','promenadeWidth'];
   for (const key of nums) if (typeof world[key] !== 'number' || !Number.isFinite(world[key])) throw new Error(`参数 ${key} 必须为有限数字`);
   if (!Number.isInteger(world.seed) || world.seed < 0 || world.seed > 1000000000) throw new Error('随机种子必须是 0–1,000,000,000 的整数');
   if (!Number.isInteger(world.size) || world.size < 200 || world.size > 800 || world.size % 20 !== 0) throw new Error('世界尺寸应为 200–800m 且为 20 的倍数');
   if (world.eastDensity < 0 || world.eastDensity > 1 || world.westDensity < 0 || world.westDensity > 1) throw new Error('建筑密度须在 0%–100% 之间');
   if (world.heightScale < 0.2 || world.heightScale > 3) throw new Error('高度倍率应为 0.2–3');
+  if (world.promenadeWidth < 4 || world.promenadeWidth > 28) throw new Error('公共廊道宽度应为 4–28m');
   if (world.plazaRadius < 20 || world.plazaRadius > Math.min(world.size/2-15,160)) throw new Error('中央开放空间半径不在允许范围内');
   if (typeof world.name !== 'string' || world.name.length > 120) throw new Error('世界名称无效');
   if (world.style !== 'future') throw new Error('当前版本仅支持 future 风格');
   return world;
 }
 
-export function generateCity(worldInput) {
+export function generateCity(worldInput, features = {}) {
   const world = validateWorld(worldInput);
+  const active={plaza:features.plaza!==false,promenade:features.promenade!==false,height:features.height!==false};
   const buildings = [], trees = [];
   const cols = world.size / 20;
   let eastEligible = 0, westEligible = 0;
@@ -55,9 +58,9 @@ export function generateCity(worldInput) {
       const jitterZ = (randomFor(world.seed,col,row,2)-0.5)*4.8;
       const x = bx + jitterX, z = bz+jitterZ;
       const dist = Math.hypot(x,z);
-      const inPlaza = dist < world.plazaRadius + 10;
+      const inPlaza = active.plaza && dist < world.plazaRadius + 10;
       // A gentle, rotated public-space promenade on the south-west axis.
-      const inPromenade = z > -world.size*0.35 && z < world.size*0.10 && Math.abs(x-0.34*z+42)<10.5;
+      const inPromenade = active.promenade && z > -world.size*0.35 && z < world.size*0.10 && Math.abs(x-0.34*z+42)<world.promenadeWidth;
       const east = bx >= 0;
       const probability = east ? world.eastDensity : world.westDensity;
       const eligible = !inPlaza && !inPromenade;
@@ -66,7 +69,7 @@ export function generateCity(worldInput) {
       if (eligible && occupancy < probability) {
         const centerWeight = Math.pow(Math.max(0,1-dist/(world.size*0.76)),1.55);
         const hNoise = randomFor(world.seed,col,row,4);
-        const height = (12 + 98*centerWeight*(0.65+hNoise*0.67))*world.heightScale;
+        const height = (12 + 98*centerWeight*(0.65+hNoise*0.67))*(active.height?world.heightScale:1);
         const width = 11.0 + randomFor(world.seed,col,row,5)*4.8;
         const depth = 11.0 + randomFor(world.seed,col,row,6)*4.8;
         const typ = randomFor(world.seed,col,row,7);
@@ -89,7 +92,7 @@ export function generateCity(worldInput) {
     }
   }
   // Plaza landscape: deterministic trees around the perimeter, outside the inner clearing.
-  for (let i=0;i<52;i++) {
+  for (let i=0;i<(active.plaza?52:0);i++) {
     const theta = 2*Math.PI*(i/52)+(randomFor(world.seed,i,1,16)-.5)*0.10;
     const r = world.plazaRadius * (0.86+randomFor(world.seed,i,2,16)*0.24);
     const x=Math.cos(theta)*r,z=Math.sin(theta)*r;
@@ -101,7 +104,7 @@ export function generateCity(worldInput) {
   const totalHeight = buildings.reduce((sum,b)=>sum+b.height,0);
   const maxHeight = buildings.reduce((m,b)=>Math.max(m,b.height),0);
   return {
-    world, buildings, trees,
+    world, buildings, trees, features:active,
     metrics: {
       total: buildings.length,
       east: eastBuildings.length,
@@ -110,7 +113,7 @@ export function generateCity(worldInput) {
       coverage: footprint / (world.size*world.size),
       avgHeight: buildings.length ? totalHeight/buildings.length : 0,
       maxHeight,
-      plazaArea: Math.PI*world.plazaRadius*world.plazaRadius
+      plazaArea: active.plaza ? Math.PI*world.plazaRadius*world.plazaRadius : 0
     }
   };
 }
@@ -159,6 +162,11 @@ export function parseCommand(text) {
     if (!increase && !decrease && has(s,['设为','设置为','调整到','变成','set to'])) return {type:'set',key,value:pct,description:`${region==='east'?'东侧':'西侧'}建筑密度设为 ${Math.round(pct*100)}%`};
     if(increase===decrease) return {type:'error',message:'请说明是“提高”还是“降低”密度。'};
     return {type:'scale',key,factor:decrease?1-pct:1+pct,description:`${region==='east'?'东侧':'西侧'}建筑密度${decrease?'降低':'提高'} ${Math.round(pct*100)}%`};
+  }
+  if(has(s,['廊道','步行通道','通道宽度','promenade'])) {
+    const width=numMatch?Number(numMatch[1]):null;
+    if(width!==null) return {type:'set',key:'promenadeWidth',value:width,description:`公共廊道宽度设为 ${width}m`};
+    return {type:'error',message:'请尝试「公共廊道宽度设为 16m」。'};
   }
   if(has(s,['开放空间','广场','plaza','open space'])) {
     if(pct!==null && (increase!==decrease)) return {type:'scale',key:'plazaRadius',factor:decrease?1-pct:1+pct,description:`中央开放空间半径${decrease?'缩小':'扩大'} ${Math.round(pct*100)}%`};
@@ -212,6 +220,6 @@ export function makeExport(world,history=[]) {
 }
 
 export function readExport(doc) {
-  if(!doc||doc.format!=='WorldCraft'||doc.version!==SCHEMA_VERSION) throw new Error('不是兼容的 WorldCraft V0.1 场景文件');
+  if(!doc||doc.format!=='WorldCraft'||doc.version!==SCHEMA_VERSION) throw new Error('不是兼容的 WorldCraft 场景文件');
   return validateWorld(doc.world);
 }

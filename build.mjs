@@ -7,8 +7,14 @@ const css=read('styles.css');
 const stripExport=s=>s.replace(/^export\s+/gm,'');
 const pcg=stripExport(read('src/pcg.mjs'));
 const renderer=stripExport(read('src/renderer.js'));
+const graph=stripExport(read('src/graph.mjs'));
 const app=read('src/app.js').replace(/^import[^\n]+;\s*$/gm,'');
-const bundle=`'use strict';\nconst __pcg = (()=>{\n${pcg}\nreturn { DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport };\n})();\nconst __renderer = (()=>{\n${renderer}\nreturn { WorldRenderer, CanvasFallbackRenderer };\n})();\n(()=>{\nconst {DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport} = __pcg;\nconst {WorldRenderer,CanvasFallbackRenderer} = __renderer;\n${app}\n})();`;
+const bundle=`'use strict';\nconst __pcg = (()=>{\n${pcg}\nreturn { DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport };\n})();\nconst __graph = (()=>{
+${graph}
+return { NODE_DEFS, defaultGraph, checkGraphShape, evaluateGraph, moveGraphNode, connectGraph, removeGraphNode, addGraphNode, setGraphNodeActive, graphFromFile };
+})();
+const __renderer = (()=>{\n${renderer}\nreturn { WorldRenderer, CanvasFallbackRenderer };\n})();\n(()=>{\nconst {DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport} = __pcg;\nconst {WorldRenderer,CanvasFallbackRenderer} = __renderer;
+const {NODE_DEFS,defaultGraph,checkGraphShape,evaluateGraph,moveGraphNode,connectGraph,removeGraphNode,addGraphNode,setGraphNodeActive,graphFromFile} = __graph;\n${app}\n})();`;
 // External assets and package installs are not required. Keep all content in one HTML file.
 const html=raw.replace('<link rel="stylesheet" href="./styles.css" />',`<style>\n${css}\n</style>`).replace('<script type="module" src="./src/app.js"></script>',`<script>\n${bundle}\n</script>`);
 writeFileSync(join(root,'worldcraft.html'),html);

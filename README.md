@@ -1,4 +1,35 @@
-# WorldCraft V0.1 — Natural Language Procedural World Builder
+# WorldCraft V0.2 — Procedural Graph Editor
+
+**WorldCraft V0.2** 将原先的固定 PCG 流水线升级为可编辑的 **有向单流生成图**。七个预制模块依次处理世界种子、候选网格、广场预留、公共廊道、密度分布、高度梯度与三维实例化。节点之间存在真实的执行依赖；绕过可选模块会改变最终三维几何，不只是改变可视化流程。
+
+![WorldCraft V0.2 — PCG Graph](preview-v0.2.jpg)
+
+## V0.2 新功能
+
+- **Graph 编辑**：拖动节点标题可重新布局；点击源节点右侧输出端口，再点击目标左侧输入端口进行重连。连线必须遵循 `Seed → Grid → (Plaza / Promenade) → Density → (Height) → Instances` 的依赖次序。
+- **图计算**：生成器识别连接在 Seed 至 Instances 主链上的模块。未连接的可选节点不会执行。例如绕过 `Plaza` 后，中央开放空间不再保留，建筑可以占据其位置；绕过 `Height` 后改为基础高度倍率 1.0。
+- **模块操作**：可选模块 Plaza、Promenade、Height 支持“绕过 / 接入”、“删除 / 添加”。必需模块 Seed、Grid、Density、Instances 不允许删除。
+- **参数 Inspector**：选择任意模块，在右侧修改尺寸、随机种子、密度、广场半径、廊道宽度和高度倍率；修改会触发真实的几何重新计算。
+- **规则校验**：禁止逆向边、重复端口及缺失必需节点。手动重连途中如果主链断开，界面会标记“生成链未完成”，**保留最后一次有效的三维预览**，待修复后再次计算。
+- **版本与导出**：节点位置、连接、绕过状态与世界参数一起进入撤销/重做及 JSON 导入导出；仍兼容不含 `graph` 字段的 V0.1 场景 JSON。
+- **自然语言扩展**：离线支持“禁用高度梯度”、“关闭中央广场”、“恢复中央广场”、“公共廊道宽度设为 16m”等有限指令。不宣称自由创建任意节点或具备通用 LLM 理解能力。
+
+## 立即运行
+
+- **最简单**：下载或双击仓库根目录的 `worldcraft.html`（单文件无第三方依赖，建议 Chrome / Edge）。
+- **模块开发版**：`npm run serve`，打开 `http://localhost:5190`。
+- **构建**：`npm run build`，重建单文件 `worldcraft.html`。
+- **单元测试**：`npm test`。可选浏览器测试：`python tests/browser_graph.py`（本机安装 Playwright + Chromium）。
+
+## V0.2 技术边界
+
+Graph 是**经过类型校验的预制 PCG 单链图**，不是 Houdini / Geometry Nodes 那样的通用多输入、多输出、可任意分支和合流的节点系统。连接会影响参与执行的模块；在当前引擎中，Plaza 与 Promenade 的相对执行顺序不改变结果，主要通过模块跳过改变几何。未来将引入真正的多端口类型系统、空间字段、中间结果缓存和局部脏区更新。世界仍在固定 20m 候选单元基础上生成，材质和建筑形态属于风格化原型级别。
+
+---
+
+## V0.1 基线与历史说明
+
+### 初始版本 — Natural Language Procedural World Builder
 
 一个真正可交互的、完全离线可用的程序化三维未来城市编辑器。生成内容是通过确定性 PCG 规则创建的 3D 几何，不是图片或视频。
 

@@ -162,7 +162,7 @@ export class WorldRenderer {
     }
     this.createMesh(this.boxGeometry,grid);
     const plazaR=scene.world.plazaRadius;
-    this.createMesh(this.cylinderGeometry,[
+    if(scene.features?.plaza!==false) this.createMesh(this.cylinderGeometry,[
       instance(0,.29,0,plazaR*2.25,.24,plazaR*2.25,'#43635c'),
       instance(0,.45,0,plazaR*1.80,.24,plazaR*1.80,'#7c8d83'),
       instance(0,.58,0,plazaR*1.38,.18,plazaR*1.38,'#aab7ac'),
@@ -170,7 +170,7 @@ export class WorldRenderer {
       instance(0,1.04,0,13,.22,13,'#a8bfaf')
     ]);
     // A diagonal landscape corridor leading to the civic clearing.
-    this.createMesh(this.boxGeometry,[instance(-65,.32,-80,15,.21,172,'#82958a',-.33)]);
+    if(scene.features?.promenade!==false) this.createMesh(this.boxGeometry,[instance(-65,.32,-80,scene.world.promenadeWidth*1.43,.21,172,'#82958a',-.33)]);
     const bodies=[],tops=[],terraces=[],accents=[];
     for(const b of scene.buildings){
       const base=rgb(PALETTE[Math.floor(b.tone*PALETTE.length)]);
@@ -334,10 +334,12 @@ export class CanvasFallbackRenderer {
       this.line([p(-s,.2,v),p(s,.2,v)],'#7d95883b',.9);
     }
     const circle=(radius,y)=>Array.from({length:56},(_,i)=>p(Math.cos(i/56*Math.PI*2)*radius,y,Math.sin(i/56*Math.PI*2)*radius));
-    this.polygon(circle(world.plazaRadius*1.13,.3),'#496c60');
-    this.polygon(circle(world.plazaRadius*.91,.4),'#879b8d');
-    this.polygon(circle(world.plazaRadius*.70,.6),'#a4b6a7');
-    this.polygon(circle(10,.85),'#5e877a');
+    if(this.scene.features?.plaza!==false){
+      this.polygon(circle(world.plazaRadius*1.13,.3),'#496c60');
+      this.polygon(circle(world.plazaRadius*.91,.4),'#879b8d');
+      this.polygon(circle(world.plazaRadius*.70,.6),'#a4b6a7');
+      this.polygon(circle(10,.85),'#5e877a');
+    }
     // Draw individual solids back to front, preserving depth cues in 2D fallback.
     const items=[...this.scene.buildings.map(q=>({kind:'building',value:q,x:q.x,z:q.z})),...this.scene.trees.map(q=>({kind:'tree',value:q,x:q.x,z:q.z}))];
     items.sort((a,b)=>Math.hypot(b.x-eye[0],b.z-eye[2])-Math.hypot(a.x-eye[0],a.z-eye[2]));
