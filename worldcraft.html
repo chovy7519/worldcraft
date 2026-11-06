@@ -381,6 +381,25 @@ function validateSpatialInvariants(scene){
   for(const name of ['roads','parcels','buildings','parks']){
     const items=scene[name];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++)if(overlapArea(items[i].bounds,items[j].bounds)>EPS)errors.push(`${name} 重叠 ${items[i].id}/${items[j].id}`);
   }
+  // The carriageway network is connected by shared positive-length edges.
+  const adjacent=(a,b)=>{
+    const x=Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0);
+    const z=Math.min(a.z1,b.z1)-Math.max(a.z0,b.z0);
+    return (x>EPS&&(Math.abs(a.z1-b.z0)<EPS||Math.abs(b.z1-a.z0)<EPS)) ||
+      (z>EPS&&(Math.abs(a.x1-b.x0)<EPS||Math.abs(b.x1-a.x0)<EPS));
+  };
+  if(scene.roads.length){
+    const visited=new Set([0]),stack=[0];
+    while(stack.length){const i=stack.pop();for(let j=0;j<scene.roads.length;j++)if(!visited.has(j)&&adjacent(scene.roads[i].bounds,scene.roads[j].bounds)){visited.add(j);stack.push(j);}}
+    if(visited.size!==scene.roads.length)errors.push(`道路网络不连通：${visited.size}/${scene.roads.length} 段`);
+  }
+  const assigned=new Map(scene.parcels.map(p=>[p.id,p]));
+  for(const p of scene.parcels){if(!['residential','commercial','civic','park'].includes(p.use))errors.push(`地块功能未分配 ${p.id}`);}
+  for(const b of scene.buildings)if(!assigned.has(b.parcelId)||assigned.get(b.parcelId).use!==b.use||b.use==='park')errors.push(`建筑功能引用无效 ${b.id}`);
+  const parkIDs=new Set(scene.parks.map(p=>p.parcelId));
+  for(const p of scene.parcels)if((p.use==='park')!==parkIDs.has(p.id))errors.push(`公园功能或实体不一致 ${p.id}`);
+  const tiledArea=scene.roads.reduce((sum,r)=>sum+r.area,0)+scene.parcels.reduce((sum,p)=>sum+p.area,0);
+  if(Math.abs(tiledArea-scene.world.size**2)>.01)errors.push(`道路和地块未覆盖整个场地：${tiledArea}`);
   checkExclusive(scene.roads,scene.parcels,'道路与地块重叠');checkExclusive(scene.roads,scene.buildings,'道路与建筑重叠');checkExclusive(scene.roads,scene.parks,'道路与公园重叠');
   checkExclusive(scene.buildings,scene.parks,'建筑与公园重叠');
   for(const b of scene.buildings){const p=scene.parcels.find(p=>p.id===b.parcelId);if(!p||!within({x:b.bounds.x0,z:b.bounds.z0},p.bounds)||!within({x:b.bounds.x1,z:b.bounds.z1},p.bounds))errors.push(`建筑不在地块内 ${b.id}`);}
