@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEFAULT_WORLD,generateCity,validateWorld,makeExport,readExport} from '../src/pcg.mjs';
 import {validateSpatialInvariants} from '../src/spatial.mjs';
-import {networkFromTopology,normalizeRoadNetwork,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction} from '../src/road-network.mjs';
+import {ROAD_NETWORK_VERSION,networkFromTopology,normalizeRoadNetwork,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction} from '../src/road-network.mjs';
 import {polygonArea} from '../src/polygonal.mjs';
 const base=()=>generateCity(DEFAULT_WORLD);
 const initial=()=>networkFromTopology(base().roadGraph,DEFAULT_WORLD.size);
@@ -11,7 +11,7 @@ const valid=s=>{const result=validateSpatialInvariants(s);assert.equal(result.va
 
 test('convert automatic centerlines to stable authored node/edge graph; preserve original geometry',()=>{
   const network=initial();
-  assert.equal(network.version,1);
+  assert.equal(network.version,ROAD_NETWORK_VERSION);
   assert.ok(network.nodes.length>25&&network.edges.length>35);
   assert.equal(new Set(network.nodes.map(n=>n.id)).size,network.nodes.length);
   assert.equal(new Set(network.edges.map(e=>e.id)).size,network.edges.length);

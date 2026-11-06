@@ -2,7 +2,7 @@ import {DEFAULT_WORLD,generateCity,parseCommand,applyCommand,compareScenes,valid
 import {WorldRenderer,CanvasFallbackRenderer} from './renderer.js';
 import {NODE_DEFS,defaultGraph,checkGraphShape,evaluateGraph,moveGraphNode,connectGraph,removeGraphNode,addGraphNode,setGraphNodeActive,graphFromFile} from './graph.mjs';
 import {makeRoadAxes,createRoadTopology} from './polygonal.mjs';
-import {networkFromTopology,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction} from './road-network.mjs';
+import {networkFromTopology,moveRoadNode,resizeRoadEdge,curveRoadEdge,roadCurveControl,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction} from './road-network.mjs';
 import {validateSpatialInvariants} from './spatial.mjs';
 
 const $=id=>document.getElementById(id);
@@ -10,16 +10,16 @@ const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>'
 const pct=n=>`${Math.round(n*100)}%`;
 const fmt=(n,d=0)=>Number(n).toLocaleString('zh-CN',{maximumFractionDigits:d,minimumFractionDigits:d});
 const shortTime=()=>new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
-const storeKey='worldcraft-v0.5-session';
+const storeKey='worldcraft-v0.6-session';
 const demoPrompts=[
   '生成一座 400×400m 的未来城市，中心高外围低，保留中央开放空间',
   '将东侧建筑密度降低 30%，其他区域不变',
   '整体建筑高度提高 20%',
-  '斜路角度设为 50 度'
+  '路段 E-10 弯曲设为 8m'
 ];
 const pipelineNames=Object.entries(NODE_DEFS).map(([key,n])=>({key,name:n.cn}));
 let persisted;
-try{persisted=JSON.parse(localStorage.getItem(storeKey)||localStorage.getItem('worldcraft-v0.4-session')||localStorage.getItem('worldcraft-v0.2-session')||localStorage.getItem('worldcraft-v0.1-session')||'null');}catch(_){persisted=null;}
+try{persisted=JSON.parse(localStorage.getItem(storeKey)||localStorage.getItem('worldcraft-v0.5-session')||localStorage.getItem('worldcraft-v0.4-session')||localStorage.getItem('worldcraft-v0.2-session')||localStorage.getItem('worldcraft-v0.1-session')||'null');}catch(_){persisted=null;}
 let initialWorld;
 try{initialWorld=validateWorld(persisted?.world ?? {...DEFAULT_WORLD});}catch(_){initialWorld={...DEFAULT_WORLD};}
 let initialBaseline;
@@ -96,6 +96,9 @@ function runInstruction(text){
         if(!node)throw Error('找不到道路节点 '+roadCmd.nodeId);
         next=moveRoadNode(net,node.id,node.x+roadCmd.dx,node.z+roadCmd.dz,state.world.size);
         label=`自然语言移动节点 ${node.id} (${roadCmd.dx},${roadCmd.dz})m`;
+      }else if(roadCmd.type==='bend-edge'){
+        next=curveRoadEdge(net,roadCmd.edgeId,roadCmd.bend,state.world.size);
+        label=`自然语言弯曲路段 ${roadCmd.edgeId} ${roadCmd.bend}m`;
       }else{
         next=resizeRoadEdge(net,roadCmd.edgeId,roadCmd.width,state.world.size);
         label=`自然语言修改路段 ${roadCmd.edgeId} 宽度 ${roadCmd.width}m`;
@@ -469,13 +472,15 @@ function roadMarkup(network){
   const half=state.world.size/2, m=new Map(network.nodes.map(n=>[n.id,n])), selected=state.roadSelection;
   const verts=p=>p.map(([x,z])=>`${x},${z}`).join(' ');
   const parcels=state.scene.parcels.map(p=>{
-    const poly=p.vertices??[[p.bounds.x0,p.bounds.z0],[p.bounds.x1,p.bounds.z0],[p.bounds.x1,p.bounds.z1],[p.bounds.x0,p.bounds.z1]];
+    const polys=p.cells??[p.vertices??[[p.bounds.x0,p.bounds.z0],[p.bounds.x1,p.bounds.z0],[p.bounds.x1,p.bounds.z1],[p.bounds.x0,p.bounds.z1]]];
     const fill=p.use==='park'?'#466f57':p.use==='commercial'?'#4f6367':p.use==='civic'?'#69685c':'#344e55';
-    return `<polygon points="${verts(poly)}" fill="${fill}" stroke="#6c8380" stroke-width=".7"/>`;
+    return polys.map(poly=>`<polygon points="${verts(poly)}" fill="${fill}" stroke="#6c838022" stroke-width=".2"/>`).join('');
   }).join('');
   const roads=network.edges.map(e=>{
     const a=m.get(e.from),b=m.get(e.to);
-    return `<line class="road-segment ${selected.edge===e.id?'selected':''}" data-road-edge="${e.id}" x1="${a.x}" y1="${a.z}" x2="${b.x}" y2="${b.z}" stroke-width="${e.width}"/><line data-road-edge="${e.id}" x1="${a.x}" y1="${a.z}" x2="${b.x}" y2="${b.z}" stroke="transparent" stroke-width="${Math.max(e.width+5,15)}"/>`;
+    const c=roadCurveControl(a,b,e.bend??0);
+    const d=e.bend?`M ${a.x} ${a.z} Q ${c.x} ${c.z} ${b.x} ${b.z}`:`M ${a.x} ${a.z} L ${b.x} ${b.z}`;
+    return `<path class="road-segment ${selected.edge===e.id?'selected':''}" data-road-edge="${e.id}" d="${d}" stroke-width="${e.width}" fill="none"/><path data-road-edge="${e.id}" d="${d}" stroke="transparent" fill="none" stroke-width="${Math.max(e.width+5,15)}"/>`; 
   }).join('');
   const nodes=network.nodes.map(n=>`<circle class="road-junction ${selected.node===n.id?'selected':''}" data-road-node="${n.id}" cx="${n.x}" cy="${n.z}" r="${selected.node===n.id?5:3.6}"/>`).join('');
   return `<rect x="${-half}" y="${-half}" width="${state.world.size}" height="${state.world.size}" fill="#203238"/>${parcels}${roads}${nodes}<circle id="road-drag-ghost" class="road-editor-ghost" cx="0" cy="0" r="5" visibility="hidden"/>`;
@@ -493,7 +498,7 @@ function renderRoadEditor(){
   svg.innerHTML=roadMarkup(net);
   const n=net.nodes.find(n=>n.id===state.roadSelection.node),e=net.edges.find(e=>e.id===state.roadSelection.edge);
   if(n){$('road-info').innerHTML=`<strong>路口 ${escapeHTML(n.id)}</strong>坐标：X ${fmt(n.x,1)}m / Z ${fmt(n.z,1)}m<br/>连接道路：${net.edges.filter(e=>e.from===n.id||e.to===n.id).length} 条<br/><span class="road-note">${editing?'拖拽圆点修改空间拓扑。点击「新建支路」后，在平面空白处点击终点。':'点击「转为可编辑道路网络」以启用拖拽。'}</span>`;}
-  else if(e){$('road-info').innerHTML=`<strong>道路 ${escapeHTML(e.id)}</strong>${escapeHTML(e.kind)} · ${escapeHTML(e.from)} → ${escapeHTML(e.to)}<br/>路幅：<input id="road-width-input" type="number" min="6" max="22" step="1" value="${e.width}" ${editing?'':'disabled'}/> m<span class="road-note">修改宽度会重算地块、建筑、公园与树木。</span>`;}
+  else if(e){$('road-info').innerHTML=`<strong>道路 ${escapeHTML(e.id)}</strong>${escapeHTML(e.kind)} · ${escapeHTML(e.from)} → ${escapeHTML(e.to)}<br/>路幅：<input id="road-width-input" type="number" min="6" max="22" step="1" value="${e.width}" ${editing?'':'disabled'}/> m<br/>曲线中点偏移：<input id="road-bend-input" type="number" min="-30" max="30" step="1" value="${e.bend??0}" ${editing?'':'disabled'}/> m<span class="road-note">0 表示直线；正负代表朝路段左右侧弯曲。所有改动均触发道路与用地复算。</span>`;}
   else $('road-info').innerHTML=`<strong>${editing?'道路拓扑编辑':'道路网络预览'}</strong>选择道路查看宽度，选择节点查看坐标。<span class="road-note">${editing?'拖拽路口、拆分路段或添加分支。所有提交都经过空间碰撞与临路校验。':'点击「转为可编辑道路网络」，将当前生成结果转换为可保存的节点与道路段。'}</span>`;
 }
 function svgToWorld(svg,e){
@@ -523,8 +528,9 @@ function wireRoadEditor(){
   });
   $('road-branch').addEventListener('click',()=>{state.roadBranchMode=!state.roadBranchMode;renderRoadEditor();toast(state.roadBranchMode?'在道路平面空白处点击，添加与选中节点连接的支路':'已退出添加支路模式');});
   $('road-info').addEventListener('change',e=>{
-    if(e.target.id!=='road-width-input'||!state.roadSelection.edge)return;
-    try{roadEdit(`调整道路 ${state.roadSelection.edge} 宽度`,resizeRoadEdge(editorNetwork(),state.roadSelection.edge,Number(e.target.value),state.world.size));}
+    if(!['road-width-input','road-bend-input'].includes(e.target.id)||!state.roadSelection.edge)return;
+    try{const curve=e.target.id==='road-bend-input';
+      roadEdit(`调整道路 ${state.roadSelection.edge} ${curve?'弯曲偏移':'宽度'}`,curve?curveRoadEdge(editorNetwork(),state.roadSelection.edge,Number(e.target.value),state.world.size):resizeRoadEdge(editorNetwork(),state.roadSelection.edge,Number(e.target.value),state.world.size));}
     catch(error){feedback(error.message,true);renderRoadEditor();}
   });
   const svg=$('road-map');let dragging=null;

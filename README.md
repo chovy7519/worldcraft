@@ -1,14 +1,14 @@
-> **V0.5 新增**：可编辑道路中心线拓扑（稳定节点/路段 ID）、路口拖拽、有限支路、道路分段/合并、道路宽度编辑、多边形重算与约束校验回滚、局部地块 ID 保留，详见 [Road Topology V0.5](docs/ROAD_TOPOLOGY_V05.md)。
+> **V0.6 新增**：可编辑道路中心线拓扑（稳定节点/路段 ID）、路口拖拽、有限支路、道路分段/合并、道路宽度编辑、多边形重算与约束校验回滚、局部地块 ID 保留，详见 [Road Topology V0.6](docs/ROAD_TOPOLOGY_V05.md)。
 >
 > **V0.4 新增**：斜向直线道路的角度/偏移/路幅控制，真实凸多边形道路裁切、非矩形地块、建筑多边形退界和树木几何避让。详见 [Road Geometry V0.4](docs/ROAD_GEOMETRY_V04.md)。
 
-# WorldCraft V0.5 — Natural-Language Procedural World Studio
+# WorldCraft V0.6 — Natural-Language Procedural World Studio
 
 以**自然语言 + 可编辑 PCG Graph + 确定性的空间规则**构建可持续修改的三维城市。首版空间链路已从基础建筑体量，扩展为 **道路网络 → 地块划分 → 功能分配 → 多类型建筑 / 多尺度公园 → 道路与地块协调的树木**。
 
-![WorldCraft V0.3 baseline spatial workspace (V0.5 road editor is not pictured)](preview-spatial-v0.3.jpg)
+![WorldCraft V0.3 baseline spatial workspace (V0.6 road editor is not pictured)](preview-spatial-v0.3.jpg)
 
-## V0.5 操作入口
+## V0.6 操作入口
 
 在工作台底部打开「⌁ 道路编辑器」，先点击「转为可编辑道路网络」，再选择并拖拽道路节点、选路段调整路幅、拆分道路或添加支路。所有编辑在提交前经过场景几何校验，可能因产生无临路地块而被拒绝。
 
@@ -90,3 +90,17 @@ npm run serve
 - **V0.4 的“拓扑编辑”是有限制的：编辑贯通道路的角度、宽度与位置，从而改变交点与街区；尚未提供鼠标自由拖拽道路顶点或任意复杂曲线网络。**
 
 测试：`npm run verify`（含基础回归与新多边形测试）；浏览器手工验收建议使用 `npm run serve`。
+
+
+![WorldCraft V0.6 curve road and polygon workspace](preview-v0.6.jpg)
+
+## V0.6 · Compound Regions & Curved Roads
+
+- 可编辑道路边新增 `bend`（-30m～30m）控制二次 Bézier 曲线实际中点偏移；单文件版道路编辑器可直接修改，并支持「路段 E-10 弯曲设为 8m」等离线自然语言指令。
+- 曲线采样生成道路面，内部弯折处有联合连接面并保证道路占地面片无正面积重叠。
+- `src/region.mjs` 将共边的凸分片合并为一个具有 `outer / holes / cells` 的复合地块，已支持凹多边形及带洞表示和真实洞边界避让。
+- 建筑、公园与树木使用地块的实际复合几何进行验证，渲染继续通过 `cells` 防止孔洞被错误填满。
+- JSON 兼容旧道路 V1 文件，读入时自动设 `bend:0` 并升级成 V2；当前世界 Schema 保持 V4。
+- **边界**：曲线是二次 Bézier 分段近似，不代表道路工程几何；含洞逻辑已做合成验证，但默认场景不一定出现自然洞；曲线拆分暂时拒绝以保留几何正确性。
+
+详见 [`docs/REGION_GEOMETRY_V06.md`](docs/REGION_GEOMETRY_V06.md)。

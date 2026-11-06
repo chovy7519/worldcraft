@@ -3,6 +3,7 @@
  * Deliberate scope: straight through-corridors, not arbitrary clipped cul-de-sacs or GIS routing.
  */
 import {networkSegments} from './road-network.mjs';
+import {mergeConvexCells,regionContains,regionArea} from './region.mjs';
 export const GEOMETRY_MODEL = 'convex-polygons-v1';
 export const EDITABLE_GEOMETRY_MODEL = 'editable-road-polygons-v1';
 const EPS=1e-7;
@@ -62,7 +63,48 @@ export function insetPolygon(poly,margin){
 }
 function segmentDistance(p,a,b){const d=sub(b,a),len=dot(d,d);const t=len===0?0:Math.max(0,Math.min(1,dot(sub(p,a),d)/len));return dist(p,lerp(a,b,t));}
 export function circlePolygonConflict(p,r,poly){return containsPoint(poly,p)||poly.some((a,i)=>segmentDistance(p,a,poly[(i+1)%poly.length]) < r-EPS);}
-export function polygonsOverlap(a,b){return polygonArea(polygonIntersection(a,b))>1e-4;}
+function isConvexRing(poly){
+  let sign=0;
+  for(let i=0;i<poly.length;i++){
+    const d=cross(sub(poly[(i+1)%poly.length],poly[i]),sub(poly[(i+2)%poly.length],poly[(i+1)%poly.length]));
+    if(Math.abs(d)<=1e-6)continue;
+    if(sign&&d*sign<0)return false;sign=Math.sign(d);
+  }
+  return true;
+}
+/** Ear-clipped triangles are used only for evaluating simple concave outlines.
+ * Hole-aware objects are evaluated through their convex cell decomposition.
+ */
+export function triangulateSimple(poly){
+  if(poly.length<3)return [];
+  if(poly.length===3)return [poly];
+  const signed=poly.reduce((n,p,i)=>n+cross(p,poly[(i+1)%poly.length]),0);
+  const points=signed>=0?poly:[...poly].reverse(),indices=points.map((_,i)=>i),result=[];
+  const contained=(p,a,b,c)=>{
+    const cross1=cross(sub(b,a),sub(p,a)),cross2=cross(sub(c,b),sub(p,b)),cross3=cross(sub(a,c),sub(p,c));
+    return cross1>=-1e-7&&cross2>=-1e-7&&cross3>=-1e-7;
+  };
+  let attempts=0;
+  while(indices.length>3&&attempts++<points.length**2){
+    let hit=false;
+    for(let j=0;j<indices.length;j++){
+      const ia=indices[(j-1+indices.length)%indices.length],ib=indices[j],ic=indices[(j+1)%indices.length];
+      const a=points[ia],b=points[ib],c=points[ic];
+      if(cross(sub(b,a),sub(c,b))<1e-7)continue;
+      if(indices.some(k=>k!==ia&&k!==ib&&k!==ic&&contained(points[k],a,b,c)))continue;
+      result.push([a,b,c]);indices.splice(j,1);hit=true;break;
+    }
+    if(!hit)throw Error('复杂多边形三角化失败，请检查自相交或重复顶点');
+  }
+  if(indices.length===3)result.push(indices.map(i=>points[i]));
+  return result;
+}
+export function polygonsOverlap(a,b){
+  if(!a?.length||!b?.length)return false;
+  if(isConvexRing(a)&&isConvexRing(b))return polygonArea(polygonIntersection(a,b))>1e-3;
+  const aa=isConvexRing(a)?[a]:triangulateSimple(a),bb=isConvexRing(b)?[b]:triangulateSimple(b);
+  return aa.some(x=>bb.some(y=>polygonArea(polygonIntersection(x,y))>1e-3));
+}
 function commonEdge(a,b){
   const result=[];
   for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
@@ -141,7 +183,8 @@ function carveRoads(world,axes){
     }
     land=next;
   }
-  return {roads,blocks:land.map((p,i)=>spatial(`BL-${i}`,p))};
+  const blocks=mergeConvexCells(land).map(r=>({...spatial(`BL-${r.id}`,r.outer),id:`BL-${r.id}`,cells:r.cells,outer:r.outer,holes:r.holes,area:rn(r.area)}));
+  return {roads,blocks};
 }
 /** Clip each finite road footprint into mutually exclusive convex cells.
  * This preserves exact set-difference and site tiling without an external polygon boolean library.
@@ -203,49 +246,71 @@ function mergedRoadSegments(network){
   }
   return output;
 }
+function roundJunctionFootprint(center,radius,sides=12){
+  return Array.from({length:sides},(_,i)=>{
+    const t=i/sides*Math.PI*2;
+    return [rn(center[0]+radius*Math.cos(t)),rn(center[1]+radius*Math.sin(t))];
+  });
+}
 function carveFiniteRoads(world,network){
   const axes=mergedRoadSegments(network);
+  // Curve bends are sampled into chords. Convex junction caps union their meeting
+  // footprints without relying on overlapping render meshes or fake rectangular bounds.
+  const curveCaps=[];
+  for(const e of network.edges){
+    if(!e.bend)continue;
+    const segments=networkSegments({nodes:network.nodes,edges:[e]});
+    for(let i=1;i<segments.length;i++){
+      curveCaps.push({id:`${e.id}-cap-${i}`,kind:e.kind,
+        footprint:roundJunctionFootprint(segments[i].fromPoint,e.width/2)});
+    }
+  }
+  const cutters=[...axes.map(a=>({id:a.id,kind:a.kind,footprint:corridorPolygon(a.from,a.to,a.width)})),...curveCaps];
   let remaining=[square(world.size)],roads=[];
-  for(const axis of axes){
-    const footprint=corridorPolygon(axis.from,axis.to,axis.width),next=[];
+  for(const cutter of cutters){
+    const next=[];
     for(const poly of remaining){
-      const {outside,inside}=subtractConvex(poly,footprint);
+      const {outside,inside}=subtractConvex(poly,cutter.footprint);
       next.push(...outside);
-      if(inside.length&&polygonArea(inside)>1e-4)roads.push({...spatial(stablePolygonId('R',inside),inside),axisId:axis.id,kind:axis.kind});
+      if(inside.length&&polygonArea(inside)>1e-4)roads.push({...spatial(stablePolygonId('R',inside),inside),axisId:cutter.id,kind:cutter.kind});
     }
     remaining=next.filter(p=>polygonArea(p)>1e-4);
   }
-  const blocks=remaining.map(poly=>spatial(stablePolygonId('BL',poly),poly));
+  const blocks=mergeConvexCells(remaining).map(r=>({...spatial(`BL-${r.id}`,r.outer),id:`BL-${r.id}`,cells:r.cells,outer:r.outer,holes:r.holes,area:rn(r.area)}));
   return {roads,blocks,axes};
 }
 
+function makeRegionRecord(region,id,blockId,roads){
+  const shape=spatial(id,region.outer);
+  const frontage=region.cells.flatMap(poly=>frontageEdges(poly,roads));
+  return {...shape,id,blockId,vertices:region.outer,outer:region.outer,holes:region.holes,cells:region.cells,
+    area:rn(region.area),frontageEdges:frontage,frontageIds:[...new Set(frontage.map(f=>f.roadId))]};
+}
 function assignParcels(world,blocks,roads){
   const parcels=[];
   for(const block of blocks){
-    const shape=block.vertices,box=block.bounds;
-    const target=world.parcelTargetWidth;
+    const box=block.bounds,target=world.parcelTargetWidth;
     const variants=[];
     for(const axis of [0,1]){
       const spread=axis===0?box.x1-box.x0:box.z1-box.z0;
       const count=Math.max(1,Math.min(4,Math.round(spread/target)));
-      let lots=[];
+      let all=[];
       for(let i=0;i<count;i++){
         const lo=(axis===0?box.x0:box.z0)+spread*i/count,hi=(axis===0?box.x0:box.z0)+spread*(i+1)/count;
-        const n=axis===0?[1,0]:[0,1];const p=clipStrip(shape,n,lo,hi);
-        if(!p.length||polygonArea(p)<30)continue;
-        const lot=spatial(`${block.id}-P${i}`,p);
-        lot.blockId=block.id;lot.frontageEdges=frontageEdges(p,roads);
-        lot.frontageIds=[...new Set(lot.frontageEdges.map(f=>f.roadId))];
-        lots.push(lot);
+        const n=axis===0?[1,0]:[0,1];
+        const clips=block.cells.map(poly=>clipStrip(poly,n,lo,hi)).filter(p=>polygonArea(p)>1e-4);
+        if(!clips.length)continue;
+        const regions=mergeConvexCells(clips);
+        for(const region of regions){
+          if(region.area<30)continue;
+          all.push(makeRegionRecord(region,`L-${region.id}`,block.id,roads));
+        }
       }
-      if(lots.length&&lots.every(p=>p.frontageIds.length))variants.push(lots);
+      if(all.length&&all.every(p=>p.frontageIds.length))variants.push(all);
     }
-    // Splitting is conservative: if any resulting lot would be landlocked, keep the parent block.
     const best=variants.sort((a,b)=>b.length-a.length)[0];
-    let chosen=best??[];
-    if(!chosen.length){const lot={...block,id:`${block.id}-P0`,blockId:block.id,frontageEdges:frontageEdges(shape,roads)};lot.frontageIds=[...new Set(lot.frontageEdges.map(e=>e.roadId))];chosen=[lot];}
-    // Marginal sliver blocks are held as public reserve if frontage is absent (site edge artifacts).
-    for(const p of chosen)parcels.push(p);
+    const chosen=best??[makeRegionRecord({outer:block.outer??block.vertices,holes:block.holes??[],cells:block.cells??[block.vertices],area:block.area},`L-${block.id}`,block.id,roads)];
+    parcels.push(...chosen);
   }
   return parcels;
 }
@@ -263,10 +328,13 @@ function createBuildings(world,parcels,features,rng){
   for(const p of parcels){
     if(p.use==='park'||p.area<80)continue;
     if(randomCell(rng,world.seed,p,219)>=(p.x>=0?world.eastDensity:world.westDensity))continue;
-    const usable=insetPolygon(p.vertices,world.buildingSetback);
-    if(!usable.length||polygonArea(usable)<45)continue;
-    const c=polygonCentroid(usable),tone=randomCell(rng,world.seed,p,220),factor=.72;
-    const footprint=usable.map(v=>[rn(c[0]+(v[0]-c[0])*factor),rn(c[1]+(v[1]-c[1])*factor)]);
+    // Conservative footprint: inset a valid convex subcell. No footprint crosses an internal hole.
+    const candidates=(p.cells??[p.vertices]).map(cell=>insetPolygon(cell,world.buildingSetback))
+      .filter(poly=>polygonArea(poly)>=45).sort((a,b)=>polygonArea(b)-polygonArea(a));
+    if(!candidates.length)continue;
+    const usable=candidates[0],c=polygonCentroid(usable),tone=randomCell(rng,world.seed,p,220);
+    const footprint=usable.map(v=>[rn(c[0]+(v[0]-c[0])*.72),rn(c[1]+(v[1]-c[1])*.72)]);
+    if(!footprint.every(pt=>regionContains(p,pt,world.buildingSetback-1e-3)))continue;
     const shape=spatial(`B-${p.id}`,footprint),heightWeight=Math.max(0,1-Math.hypot(p.x,p.z)/(world.size*.75));
     const type=p.use==='commercial'?'commercial':p.use==='civic'?'civic':tone>.7?'tower':tone>.38?'terraced':'slab';
     buildings.push({...shape,parcelId:p.id,blockId:p.blockId,region:p.x>=0?'东侧':'西侧',use:p.use,type,tone,height:rn(((p.use==='civic'?10:p.use==='commercial'?25:12)+heightWeight*(40+tone*50))*(features.height===false?1:world.heightScale)),footprint:shape.area});
@@ -277,7 +345,7 @@ function createTrees(world,parcels,buildings,roads,rng){
   const trees=[],occupied=[],R=world.treeCrownRadius;
   const add=(id,x,z,kind,p)=>{
     const point=[rn(x),rn(z)];
-    if(!containsPoint(p.vertices,point,R+.3))return;
+    if(!regionContains(p,point,R+.3))return;
     if(roads.some(road=>circlePolygonConflict(point,R,road.vertices)))return;
     if(buildings.some(b=>circlePolygonConflict(point,R+world.treeBuildingClearance,b.vertices)))return;
     if(occupied.some(t=>dist(t,point)<R*2+.3))return;
@@ -330,13 +398,16 @@ export function generatePolygonCity(world,features,rng){
 export function validatePolygonCity(scene){
   const errors=[],h=scene.world.size/2;
   const collections=['roads','parcels','buildings','parks'];
+  const pieces=p=>p.cells??[p.vertices];
+  const overlap=(p,q)=>pieces(p).some(a=>pieces(q).some(b=>polygonsOverlap(a,b)));
+  const exactArea=p=>p.cells?p.cells.reduce((n,poly)=>n+polygonArea(poly),0):polygonArea(p.vertices);
   const insideWorld=p=>p.vertices.every(v=>Math.abs(v[0])<=h+1e-5&&Math.abs(v[1])<=h+1e-5);
   for(const key of collections)for(const p of scene[key]){
     if(!insideWorld(p))errors.push(`${key} out of site ${p.id}`);
-    if(p.area<1e-4||Math.abs(p.area-polygonArea(p.vertices))>1e-3)errors.push(`${key} invalid area ${p.id}`);
+    if(p.area<1e-4||Math.abs(p.area-exactArea(p))>1e-3)errors.push(`${key} invalid area ${p.id}`);
   }
   const noOverlap=(a,b,label,same=false)=>{
-    for(let i=0;i<a.length;i++)for(let j=same?i+1:0;j<b.length;j++)if(polygonsOverlap(a[i].vertices,b[j].vertices))errors.push(`${label} ${a[i].id}/${b[j].id}`);
+    for(let i=0;i<a.length;i++)for(let j=same?i+1:0;j<b.length;j++)if(overlap(a[i],b[j]))errors.push(`${label} ${a[i].id}/${b[j].id}`);
   };
   for(const key of collections)noOverlap(scene[key],scene[key],`${key} overlap`,true);
   noOverlap(scene.roads,scene.parcels,'road/parcel');noOverlap(scene.roads,scene.buildings,'road/building');noOverlap(scene.roads,scene.parks,'road/park');noOverlap(scene.buildings,scene.parks,'building/park');
@@ -344,12 +415,12 @@ export function validatePolygonCity(scene){
   if(Math.abs(total-scene.world.size**2)>0.25)errors.push(`coverage area mismatch ${total}`);
   const parcelMap=new Map(scene.parcels.map(p=>[p.id,p]));
   for(const p of scene.parcels){if(!p.frontageIds.length)errors.push(`landlocked parcel ${p.id}`);if(!['park','residential','commercial','civic'].includes(p.use))errors.push(`unknown use ${p.id}`);}
-  for(const b of scene.buildings){const p=parcelMap.get(b.parcelId);if(!p||!b.vertices.every(v=>containsPoint(p.vertices,v,scene.world.buildingSetback-0.001)))errors.push(`setback violated ${b.id}`);}
+  for(const b of scene.buildings){const p=parcelMap.get(b.parcelId);if(!p||!b.vertices.every(v=>regionContains(p,v,scene.world.buildingSetback-0.001)))errors.push(`setback violated ${b.id}`);}
   const parks=new Set(scene.parks.map(p=>p.parcelId));
   for(const p of scene.parcels)if((p.use==='park')!==parks.has(p.id))errors.push(`park mismatch ${p.id}`);
   for(const t of scene.trees){
     const p=parcelMap.get(t.parcelId),pos=[t.x,t.z],r=t.crownRadius;
-    if(!p||!containsPoint(p.vertices,pos,r))errors.push(`tree outside parcel ${t.id}`);
+    if(!p||!regionContains(p,pos,r))errors.push(`tree outside parcel ${t.id}`);
     if(scene.roads.some(rd=>circlePolygonConflict(pos,r,rd.vertices)))errors.push(`tree road collision ${t.id}`);
     if(scene.buildings.some(b=>circlePolygonConflict(pos,r+scene.world.treeBuildingClearance,b.vertices)))errors.push(`tree building collision ${t.id}`);
   }

@@ -176,7 +176,7 @@ export class WorldRenderer {
     // Ground surfaces are drawn in separate height layers (not overlapping plan footprints).
     const parkColors={small:'#76a48d',medium:'#5e8d77',large:'#447d68'};
     if(!!scene.geometryMode){
-      const draw=(p,y,h,color,architect=false)=>this.createMesh(polygonPrism(p.vertices,p.x,p.z),[instance(p.x,y,p.z,1,h,1,color)],architect);
+      const draw=(p,y,h,color,architect=false)=>{for(const poly of p.cells??[p.vertices])this.createMesh(polygonPrism(poly,p.x,p.z),[instance(p.x,y,p.z,1,h,1,color)],architect);};
       for(const p of scene.parcels)draw(p,.14,.10,p.use==='residential'?'#526568':p.use==='commercial'?'#627579':p.use==='civic'?'#66716e':'#47695d');
       for(const road of scene.roads)draw(road,.25,.14,road.kind==='promenade'?'#9baba0':road.kind==='arterial'?'#9aa49b':'#26373e');
       for(const park of scene.parks)draw(park,.35,.18,parkColors[park.kind]);
@@ -370,7 +370,7 @@ export class CanvasFallbackRenderer {
     for(const parcel of this.scene.parcels){
       const b=parcel.bounds;
       const color=parcel.use==='residential'?'#4e6466':parcel.use==='commercial'?'#72847e':parcel.use==='civic'?'#7e8074':'#4d6d60';
-      this.polygon(parcel.vertices?parcel.vertices.map(v=>p(v[0],.14,v[1])):[p(b.x0,.14,b.z0),p(b.x1,.14,b.z0),p(b.x1,.14,b.z1),p(b.x0,.14,b.z1)],color,'#9ab2a02b');
+      for(const poly of parcel.cells??[parcel.vertices??[[b.x0,b.z0],[b.x1,b.z0],[b.x1,b.z1],[b.x0,b.z1]]])this.polygon(poly.map(v=>p(v[0],.14,v[1])),color,'#9ab2a02b');
     }
     for(const road of this.scene.roads){
       const b=road.bounds;
@@ -378,7 +378,7 @@ export class CanvasFallbackRenderer {
     }
     for(const park of this.scene.parks){
       const b=park.bounds,colors={small:'#75a48a',medium:'#55876f',large:'#3e775f'};
-      this.polygon(park.vertices?park.vertices.map(v=>p(v[0],.38,v[1])):[p(b.x0,.38,b.z0),p(b.x1,.38,b.z0),p(b.x1,.38,b.z1),p(b.x0,.38,b.z1)],colors[park.kind]);
+      for(const poly of park.cells??[park.vertices??[[b.x0,b.z0],[b.x1,b.z0],[b.x1,b.z1],[b.x0,b.z1]]])this.polygon(poly.map(v=>p(v[0],.38,v[1])),colors[park.kind]);
     }
     // Draw individual solids back to front, preserving depth cues in 2D fallback.
     const items=[...this.scene.buildings.map(q=>({kind:'building',value:q,x:q.x,z:q.z})),...this.scene.trees.map(q=>({kind:'tree',value:q,x:q.x,z:q.z}))];

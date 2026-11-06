@@ -6,13 +6,14 @@ const raw=read('index.html');
 const css=read('styles.css');
 const stripExport=s=>s.replace(/^export\s+/gm,'');
 const roadNetwork=stripExport(read('src/road-network.mjs'));
+const region=stripExport(read('src/region.mjs'));
 const polygonal=stripExport(read('src/polygonal.mjs')).replace(/^import[^\n]+;\s*$/gm,'');
 const spatial=stripExport(read('src/spatial.mjs')).replace(/^import[^\n]+;\s*$/gm,'');
 const pcg=stripExport(read('src/pcg.mjs')).replace(/^import[^\n]+;\s*$/gm,'');
 const renderer=stripExport(read('src/renderer.js'));
 const graph=stripExport(read('src/graph.mjs'));
 const app=read('src/app.js').replace(/^import[^\n]+;\s*$/gm,'');
-const bundle=`'use strict';\nconst __roadNetwork=(()=>{\n${roadNetwork}\nreturn {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction};\n})();\nconst {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction}=__roadNetwork;\nconst __polygonal=(()=>{\n${polygonal}\nreturn {generatePolygonCity,validatePolygonCity,makeRoadAxes,createRoadTopology};\n})();\nconst {generatePolygonCity,validatePolygonCity,makeRoadAxes,createRoadTopology}=__polygonal;\n${spatial}\nconst __pcg = (()=>{\n${pcg}\nreturn { DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport };\n})();\nconst __graph = (()=>{
+const bundle=`'use strict';\nconst __roadNetwork=(()=>{\n${roadNetwork}\nreturn {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,curveRoadEdge,roadCurveControl,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction};\n})();\nconst {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,curveRoadEdge,roadCurveControl,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction}=__roadNetwork;\nconst __region=(()=>{\n${region}\nreturn {mergeConvexCells,regionContains,regionArea};\n})();\nconst {mergeConvexCells,regionContains,regionArea}=__region;\nconst __polygonal=(()=>{\n${polygonal}\nreturn {generatePolygonCity,validatePolygonCity,makeRoadAxes,createRoadTopology};\n})();\nconst {generatePolygonCity,validatePolygonCity,makeRoadAxes,createRoadTopology}=__polygonal;\n${spatial}\nconst __pcg = (()=>{\n${pcg}\nreturn { DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport };\n})();\nconst __graph = (()=>{
 ${graph}
 return { NODE_DEFS, defaultGraph, checkGraphShape, evaluateGraph, moveGraphNode, connectGraph, removeGraphNode, addGraphNode, setGraphNodeActive, graphFromFile };
 })();

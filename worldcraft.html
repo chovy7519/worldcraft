@@ -106,7 +106,7 @@
         <div class="brandtext"><strong>WorldCraft</strong><span>PROCEDURAL WORLD STUDIO</span></div>
       </div>
       <span class="top-divider"></span>
-      <div class="breadcrumb"><span>Workspace</span><span class="chevron">/</span><strong id="project-name">Coastal Future City</strong><span class="version">V0.4</span></div>
+      <div class="breadcrumb"><span>Workspace</span><span class="chevron">/</span><strong id="project-name">Coastal Future City</strong><span class="version">V0.6</span></div>
       <div class="toolbar-actions">
         <span class="status"><i></i><span>LOCAL ENGINE</span></span>
         <button class="btn ghost small" id="undo-btn" title="撤销 (Ctrl/⌘ + Z)">↶ <span>撤销</span></button>
@@ -191,7 +191,7 @@ const __roadNetwork=(()=>{
 /** WorldCraft V0.5 — editable, deterministic road centerline graph.
  * Graph IDs identify authored nodes/segments, unlike derived junctions and rendered road polygons.
  */
-const ROAD_NETWORK_VERSION = 1;
+const ROAD_NETWORK_VERSION = 2;
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 const round=n=>Math.round(n*1e5)/1e5;
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -201,7 +201,7 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 
 function normalizeRoadNetwork(input,size){
   if(input==null)return null;
-  if(!input||input.version!==ROAD_NETWORK_VERSION||!Array.isArray(input.nodes)||!Array.isArray(input.edges))throw Error('无效的道路编辑图版本');
+  if(!input||![1,ROAD_NETWORK_VERSION].includes(input.version)||!Array.isArray(input.nodes)||!Array.isArray(input.edges))throw Error('无效的道路编辑图版本');
   if(input.nodes.length<2||input.nodes.length>180||input.edges.length<1||input.edges.length>240)throw Error('道路网络规模应在 2–180 个节点和 1–240 条道路内');
   const h=size/2, ids=new Set(),nodes=[];
   for(const n of input.nodes){
@@ -211,14 +211,17 @@ function normalizeRoadNetwork(input,size){
   }
   const positions=new Map(nodes.map(n=>[n.id,n]));
   for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++)if(dist(nodes[i],nodes[j])<.25)throw Error(`道路节点距离过近 ${nodes[i].id}/${nodes[j].id}`);
-  const eid=new Set(),pairs=new Set(),edges=[];
+  const eid=new Set(),pairs=new Set(),edges=[];let curves=0;
   for(const e of input.edges){
     if(!e||typeof e.id!=='string'||!/^[A-Za-z0-9_.-]{1,80}$/.test(e.id)||eid.has(e.id)||!ids.has(e.from)||!ids.has(e.to)||e.from===e.to)throw Error('道路边 ID 或引用无效');
     const pair=[e.from,e.to].sort().join('|');if(pairs.has(pair))throw Error(`重复的道路段 ${pair}`);
     if(dist(positions.get(e.from),positions.get(e.to))<Math.max(3,e.width/2))throw Error(`道路段 ${e.id} 长度太短`);
     if(!finite(e.width)||e.width<6||e.width>22)throw Error(`道路段 ${e.id} 宽度必须在 6–22m`);
     if(!['local','arterial','promenade'].includes(e.kind))throw Error(`道路段 ${e.id} 类型不受支持`);
-    pairs.add(pair);eid.add(e.id);edges.push({id:e.id,from:e.from,to:e.to,width:round(e.width),kind:e.kind});
+    const bend=e.bend??0;
+    if(!finite(bend)||Math.abs(bend)>30)throw Error(`道路 ${e.id} 曲率偏移必须在 -30 至 30m`);
+    if(Math.abs(bend)>1e-6&&++curves>12)throw Error('V0.6 最多允许 12 条曲线路段，以确保本地可用性能');
+    pairs.add(pair);eid.add(e.id);edges.push({id:e.id,from:e.from,to:e.to,width:round(e.width),kind:e.kind,bend:round(bend)});
   }
   const seen=new Set([nodes[0].id]),stack=[nodes[0].id];
   while(stack.length){const id=stack.pop();for(const e of edges)if(e.from===id||e.to===id){const other=e.from===id?e.to:e.from;if(!seen.has(other)){seen.add(other);stack.push(other);}}}
@@ -233,6 +236,14 @@ function normalizeRoadNetwork(input,size){
     const len=pq[0]**2+pq[1]**2,t=v=>( (v.x-p.x)*pq[0]+(v.z-p.z)*pq[1] )/len;
     if(Math.min(1,Math.max(t(r),t(s)))-Math.max(0,Math.min(t(r),t(s)))>1e-5)throw Error(`道路 ${a.id} 与 ${b.id} 沿同一直线重叠`);
   }
+  // Reject control points and curve chords outside the local site before committing a road edit.
+  for(const e of edges){
+    if(!e.bend)continue;
+    const a=positions.get(e.from),b=positions.get(e.to);
+    for(const p of sampleRoadCurve(a,b,e.bend)){
+      if(Math.abs(p[0])>h+1e-4||Math.abs(p[1])>h+1e-4)throw Error(`曲线道路 ${e.id} 超出场地`);
+    }
+  }
   return {version:ROAD_NETWORK_VERSION,nodes,edges};
 }
 function networkFromTopology(topology,size){
@@ -241,9 +252,37 @@ function networkFromTopology(topology,size){
   const edges=topology.edges.map((e,i)=>({id:`E-${i}`,from:ids.get(e.from),to:ids.get(e.to),width:e.width,kind:topology.axes.find(a=>a.id===e.axisId)?.kind??'local'}));
   return normalizeRoadNetwork({version:ROAD_NETWORK_VERSION,nodes,edges},size);
 }
+/** Quadratic Bézier bends use the MID-POINT offset, not the handle offset. */
+function roadCurveControl(a,b,bend=0){
+  const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz)||1;
+  return {x:round((a.x+b.x)/2-2*bend*dz/len),z:round((a.z+b.z)/2+2*bend*dx/len)};
+}
+function sampleRoadCurve(a,b,bend=0){
+  if(!bend)return [[a.x,a.z],[b.x,b.z]];
+  const c=roadCurveControl(a,b,bend),length=Math.hypot(b.x-a.x,b.z-a.z);
+  const segments=Math.max(4,Math.min(24,Math.ceil(length/24),Math.ceil(Math.sqrt(Math.abs(bend)*2))));
+  const result=[];
+  for(let i=0;i<=segments;i++){
+    const t=i/segments,one=1-t;
+    result.push([round(one*one*a.x+2*one*t*c.x+t*t*b.x),round(one*one*a.z+2*one*t*c.z+t*t*b.z)]);
+  }
+  return result;
+}
 function networkSegments(network){
   const nodes=new Map(network.nodes.map(n=>[n.id,n]));
-  return network.edges.map(e=>({...e,axisId:e.id,fromPoint:[nodes.get(e.from).x,nodes.get(e.from).z],toPoint:[nodes.get(e.to).x,nodes.get(e.to).z]}));
+  const result=[];
+  for(const e of network.edges){
+    const pts=sampleRoadCurve(nodes.get(e.from),nodes.get(e.to),e.bend??0);
+    for(let i=0;i<pts.length-1;i++){
+      result.push({...e,id:pts.length===2?e.id:`${e.id}~${i}`,axisId:e.id,curveSegmentIndex:i,fromPoint:pts[i],toPoint:pts[i+1]});
+    }
+  }
+  return result;
+}
+function curveRoadEdge(network,id,bend,size){
+  const next=clone(network),edge=next.edges.find(e=>e.id===id);
+  if(!edge)throw Error('道路段不存在');edge.bend=round(bend);
+  return normalizeRoadNetwork(next,size);
 }
 function moveRoadNode(network,id,x,z,size){
   const next=clone(network),node=next.nodes.find(n=>n.id===id);
@@ -259,15 +298,16 @@ function nextId(values,prefix){let n=1;const known=new Set(values.map(v=>v.id));
 function splitRoadEdge(network,edgeId,size){
   const next=clone(network),index=next.edges.findIndex(e=>e.id===edgeId);
   if(index<0)throw Error('道路段不存在');const old=next.edges[index],nodes=new Map(next.nodes.map(n=>[n.id,n]));
+  if(old.bend)throw Error('曲线路段暂不能直接拆分：请先将弯曲偏移设为 0，避免改变原曲线几何');
   const a=nodes.get(old.from),b=nodes.get(old.to),id=nextId(next.nodes,'N-edit-');
   next.nodes.push({id,x:round((a.x+b.x)/2),z:round((a.z+b.z)/2)});
-  next.edges.splice(index,1,{...old,to:id},{...old,id:nextId(next.edges,'E-edit-'),from:id});
+  next.edges.splice(index,1,{...old,to:id,bend:old.bend/2},{...old,id:nextId(next.edges,'E-edit-'),from:id,bend:old.bend/2});
   return {network:normalizeRoadNetwork(next,size),nodeId:id};
 }
 function addRoadBranch(network,from,x,z,size,width=10){
   const next=clone(network),n=next.nodes.find(n=>n.id===from);if(!n)throw Error('请选择一处已有道路节点');
   const id=nextId(next.nodes,'N-edit-'),edgeId=nextId(next.edges,'E-edit-');
-  next.nodes.push({id,x:round(x),z:round(z)});next.edges.push({id:edgeId,from,to:id,width,kind:'local'});
+  next.nodes.push({id,x:round(x),z:round(z)});next.edges.push({id:edgeId,from,to:id,width,kind:'local',bend:0});
   return {network:normalizeRoadNetwork(next,size),nodeId:id,edgeId};
 }
 function removeRoadNode(network,id,size){
@@ -278,10 +318,11 @@ function removeRoadNode(network,id,size){
   }
   if(links.length!==2)throw Error('只允许删除道路终端或两条连接的中间节点，不能删除复杂交叉口');
   const first=links[0],second=links[1];
+  if(first.bend||second.bend)throw Error('曲线连接点暂不能合并，请先将相邻路段调直');
   const a=first.from===id?first.to:first.from,b=second.from===id?second.to:second.from;
   if(a===b)throw Error('不能合并为自环道路');
   next.nodes=next.nodes.filter(n=>n.id!==id);next.edges=next.edges.filter(e=>!links.includes(e));
-  next.edges.push({id:first.id,from:a,to:b,width:first.width,kind:first.kind});
+  next.edges.push({id:first.id,from:a,to:b,width:first.width,kind:first.kind,bend:0});
   return normalizeRoadNetwork(next,size);
 }
 /** Auditable road-specific natural language (not a free-form LLM agent). */
@@ -296,17 +337,179 @@ function parseRoadEditInstruction(source){
   }
   const width=s.match(/(?:道路|路段)\s*([A-Za-z0-9_.-]+)\s*(?:宽度|路幅)?\s*(?:改为|设为|调整为|调整到)\s*(\d+(?:\.\d+)?)\s*(?:米|m)?/i);
   if(width)return {type:'resize-edge',edgeId:width[1],width:Number(width[2])};
+  const bend=s.match(/(?:道路|路段)\s*([A-Za-z0-9_.-]+)\s*(?:弯曲|弯度|曲线偏移)\s*(?:设为|调整为|改为|到)?\s*(-?\d+(?:\.\d+)?)\s*(?:米|m)?/i);
+  if(bend)return {type:'bend-edge',edgeId:bend[1],bend:Number(bend[2])};
   return null;
 }
 
-return {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction};
+return {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,curveRoadEdge,roadCurveControl,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction};
 })();
-const {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction}=__roadNetwork;
+const {normalizeRoadNetwork,networkFromTopology,networkSegments,moveRoadNode,resizeRoadEdge,curveRoadEdge,roadCurveControl,splitRoadEdge,addRoadBranch,removeRoadNode,parseRoadEditInstruction}=__roadNetwork;
+const __region=(()=>{
+/** V0.6 exact planar union representation for a tiled set of disjoint convex cells.
+ * Topology is reconstructed from subdivided, opposed edges; no bounding-box booleans.
+ * A region exposes outer/hole rings AND its original convex cells for conservative meshing.
+ */
+const EPS = 2e-4;
+const round = n => Math.round(n * 1e5) / 1e5;
+const cross = (a,b) => a[0]*b[1]-a[1]*b[0];
+const sub = (a,b) => [a[0]-b[0],a[1]-b[1]];
+const areaSigned = ring => ring.reduce((s,p,i)=>s+cross(p,ring[(i+1)%ring.length]),0)/2;
+const areaOfRing = ring => Math.abs(areaSigned(ring));
+const key = p => `${Math.round(p[0]*1e4)},${Math.round(p[1]*1e4)}`;
+const len2 = v => v[0]**2+v[1]**2;
+const interp = (a,b,t) => [round(a[0]+(b[0]-a[0])*t),round(a[1]+(b[1]-a[1])*t)];
+const near = (a,b) => Math.abs(a[0]-b[0])<=EPS && Math.abs(a[1]-b[1])<=EPS;
+function simpleRing(ring){
+  let r=ring.filter((p,i)=>i===0||!near(p,ring[i-1]));
+  if(r.length>1&&near(r[0],r.at(-1)))r=r.slice(0,-1);
+  for(let change=true;change&&r.length>=3;){
+    change=false;
+    for(let i=0;i<r.length;i++){
+      const a=r[(i-1+r.length)%r.length],b=r[i],c=r[(i+1)%r.length],u=sub(b,a),v=sub(c,b);
+      if(Math.abs(cross(u,v)) <= EPS*Math.max(1,Math.hypot(...u)*Math.hypot(...v)) && u[0]*v[0]+u[1]*v[1]>=-EPS){r.splice(i,1);change=true;break;}
+    }
+  }
+  return r.map(p=>[round(p[0]),round(p[1])]);
+}
+function ringFingerprint(ring){
+  const pts=simpleRing(ring).map(key);
+  const rotations=[];
+  for(const pts0 of [pts,[...pts].reverse()])for(let i=0;i<pts0.length;i++)rotations.push([...pts0.slice(i),...pts0.slice(0,i)].join('|'));
+  return rotations.sort()[0]||'';
+}
+function regionId(outer,holes=[]){
+  const s=[ringFingerprint(outer),...holes.map(ringFingerprint).sort()].join('::');
+  let hash=2166136261;
+  for(let i=0;i<s.length;i++)hash=Math.imul(hash^s.charCodeAt(i),16777619)>>>0;
+  return `REG-${hash.toString(36)}`;
+}
+function pointInRing(ring,p){
+  let inside=false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const a=ring[j],b=ring[i];
+    if(((a[1]>p[1])!==(b[1]>p[1])) && p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])inside=!inside;
+  }
+  return inside;
+}
+function segmentDistance(p,a,b){
+  const d=sub(b,a),l=len2(d),t=l?Math.max(0,Math.min(1,((p[0]-a[0])*d[0]+(p[1]-a[1])*d[1])/l)):0;
+  return Math.hypot(p[0]-a[0]-t*d[0],p[1]-a[1]-t*d[1]);
+}
+function regionContains(region,p,clearance=0){
+  if(!pointInRing(region.outer,p)||region.holes.some(r=>pointInRing(r,p)))return false;
+  if(clearance>0){
+    for(const ring of [region.outer,...region.holes])for(let i=0;i<ring.length;i++)if(segmentDistance(p,ring[i],ring[(i+1)%ring.length])<clearance-EPS)return false;
+  }
+  return true;
+}
+function regionArea(region){return areaOfRing(region.outer)-region.holes.reduce((n,h)=>n+areaOfRing(h),0);}
+/** Merge convex nonoverlapping cells. Returns one record per EDGE-connected region;
+ * contacts at a single point are not treated as continuity.
+ */
+function mergeConvexCells(cells){
+  if(!cells.length)return [];
+  const original=cells.map(c=>Array.isArray(c)?c:c.vertices);
+  const verts=original.flat();
+  const segments=[];
+  const bucket=new Map();let keySeq=0;
+  function pointKey(p){
+    const x=Math.floor(p[0]/EPS),y=Math.floor(p[1]/EPS);
+    for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){
+      for(const c of bucket.get(`${x+dx}/${y+dy}`)??[])if(near(c.point,p))return c.id;
+    }
+    const id=`P${keySeq++}`,where=`${x}/${y}`;
+    if(!bucket.has(where))bucket.set(where,[]);bucket.get(where).push({id,point:p});return id;
+  }
+  for(let ci=0;ci<original.length;ci++){
+    let ring=original[ci];
+    if(areaSigned(ring)<0)ring=[...ring].reverse();
+    for(let i=0;i<ring.length;i++){
+      const a=ring[i],b=ring[(i+1)%ring.length],d=sub(b,a),d2=len2(d);
+      if(d2<1e-10)continue;
+      const breaks=[0,1];
+      for(const p of verts){
+        const v=sub(p,a),t=(v[0]*d[0]+v[1]*d[1])/d2;
+        if(t<=1e-6||t>=1-1e-6)continue;
+        if(Math.abs(cross(v,d))<=EPS*Math.sqrt(d2) && Math.hypot(v[0]-t*d[0],v[1]-t*d[1])<=EPS)breaks.push(t);
+      }
+      breaks.sort((x,y)=>x-y);
+      for(let j=0;j<breaks.length-1;j++){
+        if(breaks[j+1]-breaks[j]<1e-7)continue;
+        const p=interp(a,b,breaks[j]),q=interp(a,b,breaks[j+1]);
+        const ka=pointKey(p),kb=pointKey(q);
+        if(ka!==kb)segments.push({a:p,b:q,ci,ka,kb});
+      }
+    }
+  }
+  const parent=original.map((_,i)=>i);
+  const root=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;};
+  const join=(a,b)=>{a=root(a);b=root(b);if(a!==b)parent[Math.max(a,b)]=Math.min(a,b);};
+  const byEdge=new Map();
+  for(const edge of segments){
+    const undirected=[edge.ka,edge.kb].sort().join('=>');
+    if(!byEdge.has(undirected))byEdge.set(undirected,[]);
+    byEdge.get(undirected).push(edge);
+  }
+  const boundary=[];
+  for(const list of byEdge.values()){
+    if(list.length===1){boundary.push(list[0]);continue;}
+    if(list.length!==2||list[0].ka!==list[1].kb||list[0].kb!==list[1].ka)throw Error('多边形网格存在重叠或不一致的共边');
+    join(list[0].ci,list[1].ci);
+  }
+  const components=new Map();
+  for(let i=0;i<original.length;i++){
+    const id=root(i);if(!components.has(id))components.set(id,{cellIds:[],boundary:[]});components.get(id).cellIds.push(i);
+  }
+  for(const e of boundary)components.get(root(e.ci)).boundary.push(e);
+  const result=[];
+  for(const component of components.values()){
+    const next=new Map();for(const e of component.boundary){if(!next.has(e.ka))next.set(e.ka,[]);next.get(e.ka).push(e);}
+    const seen=new Set(),rings=[];
+    for(const edge of component.boundary){
+      if(seen.has(edge))continue;
+      let cur=edge,ring=[],guard=0;
+      while(cur&&!seen.has(cur)&&guard++<=component.boundary.length+1){
+        seen.add(cur);ring.push(cur.a);
+        if(cur.kb===edge.ka)break;
+        const options=(next.get(cur.kb)||[]).filter(e=>!seen.has(e));
+        // At a point-touch, take the sharpest clockwise boundary continuation.
+        if(options.length>1){
+          const d=sub(cur.b,cur.a);
+          options.sort((a,b)=>{
+            const va=sub(a.b,a.a),vb=sub(b.b,b.a);
+            return Math.atan2(cross(d,va),d[0]*va[0]+d[1]*va[1])-Math.atan2(cross(d,vb),d[0]*vb[0]+d[1]*vb[1]);
+          });
+        }
+        cur=options[0];
+      }
+      if(ring.length>=3){ring=simpleRing(ring);if(areaOfRing(ring)>1e-4)rings.push(ring);}
+    }
+    rings.sort((a,b)=>areaOfRing(b)-areaOfRing(a));
+    if(!rings.length)throw Error('区域合并失败：没有封闭环');
+    const outer=areaSigned(rings[0])>0?rings[0]:[...rings[0]].reverse();
+    const holes=[];
+    for(const ring of rings.slice(1)){
+      if(!pointInRing(outer,ring[0]))throw Error('区域合并失败：复合对象包含非连续外环');
+      holes.push(areaSigned(ring)<0?ring:[...ring].reverse());
+    }
+    const originals=component.cellIds.map(i=>original[i]);
+    const expected=originals.reduce((s,p)=>s+Math.abs(areaSigned(p)),0),actual=regionArea({outer,holes});
+    if(Math.abs(actual-expected)>Math.max(.03,expected*2e-5))throw Error(`区域面积不守恒 ${expected}/${actual}`);
+    result.push({id:regionId(outer,holes),outer,holes,cells:originals,area:expected,vertices:outer});
+  }
+  return result.sort((a,b)=>a.id.localeCompare(b.id));
+}
+
+return {mergeConvexCells,regionContains,regionArea};
+})();
+const {mergeConvexCells,regionContains,regionArea}=__region;
 const __polygonal=(()=>{
 /** WorldCraft V0.4 experimental convex-polygon PCG for connected grid + oblique through-road.
  * Geometry is kept in local metric X/Z coordinates; all clipping is on convex polygons.
  * Deliberate scope: straight through-corridors, not arbitrary clipped cul-de-sacs or GIS routing.
  */
+
 
 const GEOMETRY_MODEL = 'convex-polygons-v1';
 const EDITABLE_GEOMETRY_MODEL = 'editable-road-polygons-v1';
@@ -367,7 +570,48 @@ function insetPolygon(poly,margin){
 }
 function segmentDistance(p,a,b){const d=sub(b,a),len=dot(d,d);const t=len===0?0:Math.max(0,Math.min(1,dot(sub(p,a),d)/len));return dist(p,lerp(a,b,t));}
 function circlePolygonConflict(p,r,poly){return containsPoint(poly,p)||poly.some((a,i)=>segmentDistance(p,a,poly[(i+1)%poly.length]) < r-EPS);}
-function polygonsOverlap(a,b){return polygonArea(polygonIntersection(a,b))>1e-4;}
+function isConvexRing(poly){
+  let sign=0;
+  for(let i=0;i<poly.length;i++){
+    const d=cross(sub(poly[(i+1)%poly.length],poly[i]),sub(poly[(i+2)%poly.length],poly[(i+1)%poly.length]));
+    if(Math.abs(d)<=1e-6)continue;
+    if(sign&&d*sign<0)return false;sign=Math.sign(d);
+  }
+  return true;
+}
+/** Ear-clipped triangles are used only for evaluating simple concave outlines.
+ * Hole-aware objects are evaluated through their convex cell decomposition.
+ */
+function triangulateSimple(poly){
+  if(poly.length<3)return [];
+  if(poly.length===3)return [poly];
+  const signed=poly.reduce((n,p,i)=>n+cross(p,poly[(i+1)%poly.length]),0);
+  const points=signed>=0?poly:[...poly].reverse(),indices=points.map((_,i)=>i),result=[];
+  const contained=(p,a,b,c)=>{
+    const cross1=cross(sub(b,a),sub(p,a)),cross2=cross(sub(c,b),sub(p,b)),cross3=cross(sub(a,c),sub(p,c));
+    return cross1>=-1e-7&&cross2>=-1e-7&&cross3>=-1e-7;
+  };
+  let attempts=0;
+  while(indices.length>3&&attempts++<points.length**2){
+    let hit=false;
+    for(let j=0;j<indices.length;j++){
+      const ia=indices[(j-1+indices.length)%indices.length],ib=indices[j],ic=indices[(j+1)%indices.length];
+      const a=points[ia],b=points[ib],c=points[ic];
+      if(cross(sub(b,a),sub(c,b))<1e-7)continue;
+      if(indices.some(k=>k!==ia&&k!==ib&&k!==ic&&contained(points[k],a,b,c)))continue;
+      result.push([a,b,c]);indices.splice(j,1);hit=true;break;
+    }
+    if(!hit)throw Error('复杂多边形三角化失败，请检查自相交或重复顶点');
+  }
+  if(indices.length===3)result.push(indices.map(i=>points[i]));
+  return result;
+}
+function polygonsOverlap(a,b){
+  if(!a?.length||!b?.length)return false;
+  if(isConvexRing(a)&&isConvexRing(b))return polygonArea(polygonIntersection(a,b))>1e-3;
+  const aa=isConvexRing(a)?[a]:triangulateSimple(a),bb=isConvexRing(b)?[b]:triangulateSimple(b);
+  return aa.some(x=>bb.some(y=>polygonArea(polygonIntersection(x,y))>1e-3));
+}
 function commonEdge(a,b){
   const result=[];
   for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
@@ -446,7 +690,8 @@ function carveRoads(world,axes){
     }
     land=next;
   }
-  return {roads,blocks:land.map((p,i)=>spatial(`BL-${i}`,p))};
+  const blocks=mergeConvexCells(land).map(r=>({...spatial(`BL-${r.id}`,r.outer),id:`BL-${r.id}`,cells:r.cells,outer:r.outer,holes:r.holes,area:rn(r.area)}));
+  return {roads,blocks};
 }
 /** Clip each finite road footprint into mutually exclusive convex cells.
  * This preserves exact set-difference and site tiling without an external polygon boolean library.
@@ -508,49 +753,71 @@ function mergedRoadSegments(network){
   }
   return output;
 }
+function roundJunctionFootprint(center,radius,sides=12){
+  return Array.from({length:sides},(_,i)=>{
+    const t=i/sides*Math.PI*2;
+    return [rn(center[0]+radius*Math.cos(t)),rn(center[1]+radius*Math.sin(t))];
+  });
+}
 function carveFiniteRoads(world,network){
   const axes=mergedRoadSegments(network);
+  // Curve bends are sampled into chords. Convex junction caps union their meeting
+  // footprints without relying on overlapping render meshes or fake rectangular bounds.
+  const curveCaps=[];
+  for(const e of network.edges){
+    if(!e.bend)continue;
+    const segments=networkSegments({nodes:network.nodes,edges:[e]});
+    for(let i=1;i<segments.length;i++){
+      curveCaps.push({id:`${e.id}-cap-${i}`,kind:e.kind,
+        footprint:roundJunctionFootprint(segments[i].fromPoint,e.width/2)});
+    }
+  }
+  const cutters=[...axes.map(a=>({id:a.id,kind:a.kind,footprint:corridorPolygon(a.from,a.to,a.width)})),...curveCaps];
   let remaining=[square(world.size)],roads=[];
-  for(const axis of axes){
-    const footprint=corridorPolygon(axis.from,axis.to,axis.width),next=[];
+  for(const cutter of cutters){
+    const next=[];
     for(const poly of remaining){
-      const {outside,inside}=subtractConvex(poly,footprint);
+      const {outside,inside}=subtractConvex(poly,cutter.footprint);
       next.push(...outside);
-      if(inside.length&&polygonArea(inside)>1e-4)roads.push({...spatial(stablePolygonId('R',inside),inside),axisId:axis.id,kind:axis.kind});
+      if(inside.length&&polygonArea(inside)>1e-4)roads.push({...spatial(stablePolygonId('R',inside),inside),axisId:cutter.id,kind:cutter.kind});
     }
     remaining=next.filter(p=>polygonArea(p)>1e-4);
   }
-  const blocks=remaining.map(poly=>spatial(stablePolygonId('BL',poly),poly));
+  const blocks=mergeConvexCells(remaining).map(r=>({...spatial(`BL-${r.id}`,r.outer),id:`BL-${r.id}`,cells:r.cells,outer:r.outer,holes:r.holes,area:rn(r.area)}));
   return {roads,blocks,axes};
 }
 
+function makeRegionRecord(region,id,blockId,roads){
+  const shape=spatial(id,region.outer);
+  const frontage=region.cells.flatMap(poly=>frontageEdges(poly,roads));
+  return {...shape,id,blockId,vertices:region.outer,outer:region.outer,holes:region.holes,cells:region.cells,
+    area:rn(region.area),frontageEdges:frontage,frontageIds:[...new Set(frontage.map(f=>f.roadId))]};
+}
 function assignParcels(world,blocks,roads){
   const parcels=[];
   for(const block of blocks){
-    const shape=block.vertices,box=block.bounds;
-    const target=world.parcelTargetWidth;
+    const box=block.bounds,target=world.parcelTargetWidth;
     const variants=[];
     for(const axis of [0,1]){
       const spread=axis===0?box.x1-box.x0:box.z1-box.z0;
       const count=Math.max(1,Math.min(4,Math.round(spread/target)));
-      let lots=[];
+      let all=[];
       for(let i=0;i<count;i++){
         const lo=(axis===0?box.x0:box.z0)+spread*i/count,hi=(axis===0?box.x0:box.z0)+spread*(i+1)/count;
-        const n=axis===0?[1,0]:[0,1];const p=clipStrip(shape,n,lo,hi);
-        if(!p.length||polygonArea(p)<30)continue;
-        const lot=spatial(`${block.id}-P${i}`,p);
-        lot.blockId=block.id;lot.frontageEdges=frontageEdges(p,roads);
-        lot.frontageIds=[...new Set(lot.frontageEdges.map(f=>f.roadId))];
-        lots.push(lot);
+        const n=axis===0?[1,0]:[0,1];
+        const clips=block.cells.map(poly=>clipStrip(poly,n,lo,hi)).filter(p=>polygonArea(p)>1e-4);
+        if(!clips.length)continue;
+        const regions=mergeConvexCells(clips);
+        for(const region of regions){
+          if(region.area<30)continue;
+          all.push(makeRegionRecord(region,`L-${region.id}`,block.id,roads));
+        }
       }
-      if(lots.length&&lots.every(p=>p.frontageIds.length))variants.push(lots);
+      if(all.length&&all.every(p=>p.frontageIds.length))variants.push(all);
     }
-    // Splitting is conservative: if any resulting lot would be landlocked, keep the parent block.
     const best=variants.sort((a,b)=>b.length-a.length)[0];
-    let chosen=best??[];
-    if(!chosen.length){const lot={...block,id:`${block.id}-P0`,blockId:block.id,frontageEdges:frontageEdges(shape,roads)};lot.frontageIds=[...new Set(lot.frontageEdges.map(e=>e.roadId))];chosen=[lot];}
-    // Marginal sliver blocks are held as public reserve if frontage is absent (site edge artifacts).
-    for(const p of chosen)parcels.push(p);
+    const chosen=best??[makeRegionRecord({outer:block.outer??block.vertices,holes:block.holes??[],cells:block.cells??[block.vertices],area:block.area},`L-${block.id}`,block.id,roads)];
+    parcels.push(...chosen);
   }
   return parcels;
 }
@@ -568,10 +835,13 @@ function createBuildings(world,parcels,features,rng){
   for(const p of parcels){
     if(p.use==='park'||p.area<80)continue;
     if(randomCell(rng,world.seed,p,219)>=(p.x>=0?world.eastDensity:world.westDensity))continue;
-    const usable=insetPolygon(p.vertices,world.buildingSetback);
-    if(!usable.length||polygonArea(usable)<45)continue;
-    const c=polygonCentroid(usable),tone=randomCell(rng,world.seed,p,220),factor=.72;
-    const footprint=usable.map(v=>[rn(c[0]+(v[0]-c[0])*factor),rn(c[1]+(v[1]-c[1])*factor)]);
+    // Conservative footprint: inset a valid convex subcell. No footprint crosses an internal hole.
+    const candidates=(p.cells??[p.vertices]).map(cell=>insetPolygon(cell,world.buildingSetback))
+      .filter(poly=>polygonArea(poly)>=45).sort((a,b)=>polygonArea(b)-polygonArea(a));
+    if(!candidates.length)continue;
+    const usable=candidates[0],c=polygonCentroid(usable),tone=randomCell(rng,world.seed,p,220);
+    const footprint=usable.map(v=>[rn(c[0]+(v[0]-c[0])*.72),rn(c[1]+(v[1]-c[1])*.72)]);
+    if(!footprint.every(pt=>regionContains(p,pt,world.buildingSetback-1e-3)))continue;
     const shape=spatial(`B-${p.id}`,footprint),heightWeight=Math.max(0,1-Math.hypot(p.x,p.z)/(world.size*.75));
     const type=p.use==='commercial'?'commercial':p.use==='civic'?'civic':tone>.7?'tower':tone>.38?'terraced':'slab';
     buildings.push({...shape,parcelId:p.id,blockId:p.blockId,region:p.x>=0?'东侧':'西侧',use:p.use,type,tone,height:rn(((p.use==='civic'?10:p.use==='commercial'?25:12)+heightWeight*(40+tone*50))*(features.height===false?1:world.heightScale)),footprint:shape.area});
@@ -582,7 +852,7 @@ function createTrees(world,parcels,buildings,roads,rng){
   const trees=[],occupied=[],R=world.treeCrownRadius;
   const add=(id,x,z,kind,p)=>{
     const point=[rn(x),rn(z)];
-    if(!containsPoint(p.vertices,point,R+.3))return;
+    if(!regionContains(p,point,R+.3))return;
     if(roads.some(road=>circlePolygonConflict(point,R,road.vertices)))return;
     if(buildings.some(b=>circlePolygonConflict(point,R+world.treeBuildingClearance,b.vertices)))return;
     if(occupied.some(t=>dist(t,point)<R*2+.3))return;
@@ -635,13 +905,16 @@ function generatePolygonCity(world,features,rng){
 function validatePolygonCity(scene){
   const errors=[],h=scene.world.size/2;
   const collections=['roads','parcels','buildings','parks'];
+  const pieces=p=>p.cells??[p.vertices];
+  const overlap=(p,q)=>pieces(p).some(a=>pieces(q).some(b=>polygonsOverlap(a,b)));
+  const exactArea=p=>p.cells?p.cells.reduce((n,poly)=>n+polygonArea(poly),0):polygonArea(p.vertices);
   const insideWorld=p=>p.vertices.every(v=>Math.abs(v[0])<=h+1e-5&&Math.abs(v[1])<=h+1e-5);
   for(const key of collections)for(const p of scene[key]){
     if(!insideWorld(p))errors.push(`${key} out of site ${p.id}`);
-    if(p.area<1e-4||Math.abs(p.area-polygonArea(p.vertices))>1e-3)errors.push(`${key} invalid area ${p.id}`);
+    if(p.area<1e-4||Math.abs(p.area-exactArea(p))>1e-3)errors.push(`${key} invalid area ${p.id}`);
   }
   const noOverlap=(a,b,label,same=false)=>{
-    for(let i=0;i<a.length;i++)for(let j=same?i+1:0;j<b.length;j++)if(polygonsOverlap(a[i].vertices,b[j].vertices))errors.push(`${label} ${a[i].id}/${b[j].id}`);
+    for(let i=0;i<a.length;i++)for(let j=same?i+1:0;j<b.length;j++)if(overlap(a[i],b[j]))errors.push(`${label} ${a[i].id}/${b[j].id}`);
   };
   for(const key of collections)noOverlap(scene[key],scene[key],`${key} overlap`,true);
   noOverlap(scene.roads,scene.parcels,'road/parcel');noOverlap(scene.roads,scene.buildings,'road/building');noOverlap(scene.roads,scene.parks,'road/park');noOverlap(scene.buildings,scene.parks,'building/park');
@@ -649,12 +922,12 @@ function validatePolygonCity(scene){
   if(Math.abs(total-scene.world.size**2)>0.25)errors.push(`coverage area mismatch ${total}`);
   const parcelMap=new Map(scene.parcels.map(p=>[p.id,p]));
   for(const p of scene.parcels){if(!p.frontageIds.length)errors.push(`landlocked parcel ${p.id}`);if(!['park','residential','commercial','civic'].includes(p.use))errors.push(`unknown use ${p.id}`);}
-  for(const b of scene.buildings){const p=parcelMap.get(b.parcelId);if(!p||!b.vertices.every(v=>containsPoint(p.vertices,v,scene.world.buildingSetback-0.001)))errors.push(`setback violated ${b.id}`);}
+  for(const b of scene.buildings){const p=parcelMap.get(b.parcelId);if(!p||!b.vertices.every(v=>regionContains(p,v,scene.world.buildingSetback-0.001)))errors.push(`setback violated ${b.id}`);}
   const parks=new Set(scene.parks.map(p=>p.parcelId));
   for(const p of scene.parcels)if((p.use==='park')!==parks.has(p.id))errors.push(`park mismatch ${p.id}`);
   for(const t of scene.trees){
     const p=parcelMap.get(t.parcelId),pos=[t.x,t.z],r=t.crownRadius;
-    if(!p||!containsPoint(p.vertices,pos,r))errors.push(`tree outside parcel ${t.id}`);
+    if(!p||!regionContains(p,pos,r))errors.push(`tree outside parcel ${t.id}`);
     if(scene.roads.some(rd=>circlePolygonConflict(pos,r,rd.vertices)))errors.push(`tree road collision ${t.id}`);
     if(scene.buildings.some(b=>circlePolygonConflict(pos,r+scene.world.treeBuildingClearance,b.vertices)))errors.push(`tree building collision ${t.id}`);
   }
@@ -1428,7 +1701,7 @@ class WorldRenderer {
     // Ground surfaces are drawn in separate height layers (not overlapping plan footprints).
     const parkColors={small:'#76a48d',medium:'#5e8d77',large:'#447d68'};
     if(!!scene.geometryMode){
-      const draw=(p,y,h,color,architect=false)=>this.createMesh(polygonPrism(p.vertices,p.x,p.z),[instance(p.x,y,p.z,1,h,1,color)],architect);
+      const draw=(p,y,h,color,architect=false)=>{for(const poly of p.cells??[p.vertices])this.createMesh(polygonPrism(poly,p.x,p.z),[instance(p.x,y,p.z,1,h,1,color)],architect);};
       for(const p of scene.parcels)draw(p,.14,.10,p.use==='residential'?'#526568':p.use==='commercial'?'#627579':p.use==='civic'?'#66716e':'#47695d');
       for(const road of scene.roads)draw(road,.25,.14,road.kind==='promenade'?'#9baba0':road.kind==='arterial'?'#9aa49b':'#26373e');
       for(const park of scene.parks)draw(park,.35,.18,parkColors[park.kind]);
@@ -1622,7 +1895,7 @@ class CanvasFallbackRenderer {
     for(const parcel of this.scene.parcels){
       const b=parcel.bounds;
       const color=parcel.use==='residential'?'#4e6466':parcel.use==='commercial'?'#72847e':parcel.use==='civic'?'#7e8074':'#4d6d60';
-      this.polygon(parcel.vertices?parcel.vertices.map(v=>p(v[0],.14,v[1])):[p(b.x0,.14,b.z0),p(b.x1,.14,b.z0),p(b.x1,.14,b.z1),p(b.x0,.14,b.z1)],color,'#9ab2a02b');
+      for(const poly of parcel.cells??[parcel.vertices??[[b.x0,b.z0],[b.x1,b.z0],[b.x1,b.z1],[b.x0,b.z1]]])this.polygon(poly.map(v=>p(v[0],.14,v[1])),color,'#9ab2a02b');
     }
     for(const road of this.scene.roads){
       const b=road.bounds;
@@ -1630,7 +1903,7 @@ class CanvasFallbackRenderer {
     }
     for(const park of this.scene.parks){
       const b=park.bounds,colors={small:'#75a48a',medium:'#55876f',large:'#3e775f'};
-      this.polygon(park.vertices?park.vertices.map(v=>p(v[0],.38,v[1])):[p(b.x0,.38,b.z0),p(b.x1,.38,b.z0),p(b.x1,.38,b.z1),p(b.x0,.38,b.z1)],colors[park.kind]);
+      for(const poly of park.cells??[park.vertices??[[b.x0,b.z0],[b.x1,b.z0],[b.x1,b.z1],[b.x0,b.z1]]])this.polygon(poly.map(v=>p(v[0],.38,v[1])),colors[park.kind]);
     }
     // Draw individual solids back to front, preserving depth cues in 2D fallback.
     const items=[...this.scene.buildings.map(q=>({kind:'building',value:q,x:q.x,z:q.z})),...this.scene.trees.map(q=>({kind:'tree',value:q,x:q.x,z:q.z}))];
@@ -1662,16 +1935,16 @@ const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>'
 const pct=n=>`${Math.round(n*100)}%`;
 const fmt=(n,d=0)=>Number(n).toLocaleString('zh-CN',{maximumFractionDigits:d,minimumFractionDigits:d});
 const shortTime=()=>new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
-const storeKey='worldcraft-v0.5-session';
+const storeKey='worldcraft-v0.6-session';
 const demoPrompts=[
   '生成一座 400×400m 的未来城市，中心高外围低，保留中央开放空间',
   '将东侧建筑密度降低 30%，其他区域不变',
   '整体建筑高度提高 20%',
-  '斜路角度设为 50 度'
+  '路段 E-10 弯曲设为 8m'
 ];
 const pipelineNames=Object.entries(NODE_DEFS).map(([key,n])=>({key,name:n.cn}));
 let persisted;
-try{persisted=JSON.parse(localStorage.getItem(storeKey)||localStorage.getItem('worldcraft-v0.4-session')||localStorage.getItem('worldcraft-v0.2-session')||localStorage.getItem('worldcraft-v0.1-session')||'null');}catch(_){persisted=null;}
+try{persisted=JSON.parse(localStorage.getItem(storeKey)||localStorage.getItem('worldcraft-v0.5-session')||localStorage.getItem('worldcraft-v0.4-session')||localStorage.getItem('worldcraft-v0.2-session')||localStorage.getItem('worldcraft-v0.1-session')||'null');}catch(_){persisted=null;}
 let initialWorld;
 try{initialWorld=validateWorld(persisted?.world ?? {...DEFAULT_WORLD});}catch(_){initialWorld={...DEFAULT_WORLD};}
 let initialBaseline;
@@ -1729,6 +2002,9 @@ function commit(description,world,{resetBaseline=false,graph=state.graph}={}){
   return true;
 }
 function setParameter(key,value,label){
+  if(state.world.roadNetwork&&['roadSpacing','roadWidth','diagonalWidth','diagonalAngle','diagonalOffset','promenadeWidth'].includes(key)){
+    feedback('当前使用可编辑道路图。请在「道路编辑器」中更改道路；或先还原自动路网。',true);toast('可编辑道路网络已覆盖自动路网规则');return;
+  }
   const result=applyCommand(state.world,{type:'set',key,value,description:label});
   if(!result.ok){feedback(result.error,true);return;}
   commit(label,result.world);
@@ -1745,6 +2021,9 @@ function runInstruction(text){
         if(!node)throw Error('找不到道路节点 '+roadCmd.nodeId);
         next=moveRoadNode(net,node.id,node.x+roadCmd.dx,node.z+roadCmd.dz,state.world.size);
         label=`自然语言移动节点 ${node.id} (${roadCmd.dx},${roadCmd.dz})m`;
+      }else if(roadCmd.type==='bend-edge'){
+        next=curveRoadEdge(net,roadCmd.edgeId,roadCmd.bend,state.world.size);
+        label=`自然语言弯曲路段 ${roadCmd.edgeId} ${roadCmd.bend}m`;
       }else{
         next=resizeRoadEdge(net,roadCmd.edgeId,roadCmd.width,state.world.size);
         label=`自然语言修改路段 ${roadCmd.edgeId} 宽度 ${roadCmd.width}m`;
@@ -2026,6 +2305,7 @@ function wireGraphEvents(){
   $('graph-node-inspector').addEventListener('change',e=>{
     const input=e.target.closest('[data-graph-param]');if(!input)return;
     const key=input.dataset.graphParam,value=Number(input.value),spec=graphParams[key];
+    if(state.world.roadNetwork&&['roadSpacing','roadWidth','diagonalWidth','diagonalAngle','diagonalOffset','promenadeWidth'].includes(key)){feedback('可编辑道路网络已覆盖自动道路参数。请在道路编辑器中修改。',true);renderGraphInspector();return;}
     if(!Number.isFinite(value)||value<spec.min||value>spec.max){feedback(`${spec.name}超出允许范围`,true);renderGraphInspector();return;}
     const r=applyCommand(state.world,{type:'set',key,value,description:`调整 ${spec.name}`});
     if(!r.ok){feedback(r.error,true);renderGraphInspector();return;}
@@ -2117,13 +2397,15 @@ function roadMarkup(network){
   const half=state.world.size/2, m=new Map(network.nodes.map(n=>[n.id,n])), selected=state.roadSelection;
   const verts=p=>p.map(([x,z])=>`${x},${z}`).join(' ');
   const parcels=state.scene.parcels.map(p=>{
-    const poly=p.vertices??[[p.bounds.x0,p.bounds.z0],[p.bounds.x1,p.bounds.z0],[p.bounds.x1,p.bounds.z1],[p.bounds.x0,p.bounds.z1]];
+    const polys=p.cells??[p.vertices??[[p.bounds.x0,p.bounds.z0],[p.bounds.x1,p.bounds.z0],[p.bounds.x1,p.bounds.z1],[p.bounds.x0,p.bounds.z1]]];
     const fill=p.use==='park'?'#466f57':p.use==='commercial'?'#4f6367':p.use==='civic'?'#69685c':'#344e55';
-    return `<polygon points="${verts(poly)}" fill="${fill}" stroke="#6c8380" stroke-width=".7"/>`;
+    return polys.map(poly=>`<polygon points="${verts(poly)}" fill="${fill}" stroke="#6c838022" stroke-width=".2"/>`).join('');
   }).join('');
   const roads=network.edges.map(e=>{
     const a=m.get(e.from),b=m.get(e.to);
-    return `<line class="road-segment ${selected.edge===e.id?'selected':''}" data-road-edge="${e.id}" x1="${a.x}" y1="${a.z}" x2="${b.x}" y2="${b.z}" stroke-width="${e.width}"/><line data-road-edge="${e.id}" x1="${a.x}" y1="${a.z}" x2="${b.x}" y2="${b.z}" stroke="transparent" stroke-width="${Math.max(e.width+5,15)}"/>`;
+    const c=roadCurveControl(a,b,e.bend??0);
+    const d=e.bend?`M ${a.x} ${a.z} Q ${c.x} ${c.z} ${b.x} ${b.z}`:`M ${a.x} ${a.z} L ${b.x} ${b.z}`;
+    return `<path class="road-segment ${selected.edge===e.id?'selected':''}" data-road-edge="${e.id}" d="${d}" stroke-width="${e.width}" fill="none"/><path data-road-edge="${e.id}" d="${d}" stroke="transparent" fill="none" stroke-width="${Math.max(e.width+5,15)}"/>`; 
   }).join('');
   const nodes=network.nodes.map(n=>`<circle class="road-junction ${selected.node===n.id?'selected':''}" data-road-node="${n.id}" cx="${n.x}" cy="${n.z}" r="${selected.node===n.id?5:3.6}"/>`).join('');
   return `<rect x="${-half}" y="${-half}" width="${state.world.size}" height="${state.world.size}" fill="#203238"/>${parcels}${roads}${nodes}<circle id="road-drag-ghost" class="road-editor-ghost" cx="0" cy="0" r="5" visibility="hidden"/>`;
@@ -2141,7 +2423,7 @@ function renderRoadEditor(){
   svg.innerHTML=roadMarkup(net);
   const n=net.nodes.find(n=>n.id===state.roadSelection.node),e=net.edges.find(e=>e.id===state.roadSelection.edge);
   if(n){$('road-info').innerHTML=`<strong>路口 ${escapeHTML(n.id)}</strong>坐标：X ${fmt(n.x,1)}m / Z ${fmt(n.z,1)}m<br/>连接道路：${net.edges.filter(e=>e.from===n.id||e.to===n.id).length} 条<br/><span class="road-note">${editing?'拖拽圆点修改空间拓扑。点击「新建支路」后，在平面空白处点击终点。':'点击「转为可编辑道路网络」以启用拖拽。'}</span>`;}
-  else if(e){$('road-info').innerHTML=`<strong>道路 ${escapeHTML(e.id)}</strong>${escapeHTML(e.kind)} · ${escapeHTML(e.from)} → ${escapeHTML(e.to)}<br/>路幅：<input id="road-width-input" type="number" min="6" max="22" step="1" value="${e.width}" ${editing?'':'disabled'}/> m<span class="road-note">修改宽度会重算地块、建筑、公园与树木。</span>`;}
+  else if(e){$('road-info').innerHTML=`<strong>道路 ${escapeHTML(e.id)}</strong>${escapeHTML(e.kind)} · ${escapeHTML(e.from)} → ${escapeHTML(e.to)}<br/>路幅：<input id="road-width-input" type="number" min="6" max="22" step="1" value="${e.width}" ${editing?'':'disabled'}/> m<br/>曲线中点偏移：<input id="road-bend-input" type="number" min="-30" max="30" step="1" value="${e.bend??0}" ${editing?'':'disabled'}/> m<span class="road-note">0 表示直线；正负代表朝路段左右侧弯曲。所有改动均触发道路与用地复算。</span>`;}
   else $('road-info').innerHTML=`<strong>${editing?'道路拓扑编辑':'道路网络预览'}</strong>选择道路查看宽度，选择节点查看坐标。<span class="road-note">${editing?'拖拽路口、拆分路段或添加分支。所有提交都经过空间碰撞与临路校验。':'点击「转为可编辑道路网络」，将当前生成结果转换为可保存的节点与道路段。'}</span>`;
 }
 function svgToWorld(svg,e){
@@ -2171,8 +2453,9 @@ function wireRoadEditor(){
   });
   $('road-branch').addEventListener('click',()=>{state.roadBranchMode=!state.roadBranchMode;renderRoadEditor();toast(state.roadBranchMode?'在道路平面空白处点击，添加与选中节点连接的支路':'已退出添加支路模式');});
   $('road-info').addEventListener('change',e=>{
-    if(e.target.id!=='road-width-input'||!state.roadSelection.edge)return;
-    try{roadEdit(`调整道路 ${state.roadSelection.edge} 宽度`,resizeRoadEdge(editorNetwork(),state.roadSelection.edge,Number(e.target.value),state.world.size));}
+    if(!['road-width-input','road-bend-input'].includes(e.target.id)||!state.roadSelection.edge)return;
+    try{const curve=e.target.id==='road-bend-input';
+      roadEdit(`调整道路 ${state.roadSelection.edge} ${curve?'弯曲偏移':'宽度'}`,curve?curveRoadEdge(editorNetwork(),state.roadSelection.edge,Number(e.target.value),state.world.size):resizeRoadEdge(editorNetwork(),state.roadSelection.edge,Number(e.target.value),state.world.size));}
     catch(error){feedback(error.message,true);renderRoadEditor();}
   });
   const svg=$('road-map');let dragging=null;
