@@ -1,3 +1,4 @@
+import {generatePolygonCity,validatePolygonCity} from './polygonal.mjs';
 /** WorldCraft V0.3: pure deterministic, axis-aligned spatial PCG pipeline.
  * Local metric X/Z plane. All stages consume upstream artifacts, not rendered meshes.
  */
@@ -203,6 +204,7 @@ function makeTrees(world,assigned,roads,buildings,parks,rng){
   return trees;
 }
 export function generateSpatialCity(world,features,rng){
+  if(world.diagonalWidth>0)return {...generatePolygonCity(world,features,rng),extensions:EXTENSION_SLOTS};
   const pipeline=[];
   const roadsStage=makeRoads(world,features);pipeline.push({stage:'roads',count:roadsStage.roads.length});
   const parcelStage=makeParcels(world,roadsStage,rng);pipeline.push({stage:'parcels',count:parcelStage.parcels.length});
@@ -223,6 +225,7 @@ export function generateSpatialCity(world,features,rng){
   return {world,features,roads:roadsStage.roads,roadLines:roadsStage.roadLines,blocks:parcelStage.blocks,parcels,buildings,parks,trees,pipeline,metrics,extensions:EXTENSION_SLOTS};
 }
 export function validateSpatialInvariants(scene){
+  if(scene.geometryMode==='convex-polygons-v1')return validatePolygonCity(scene);
   const errors=[],withinWorld=b=>b.x0>=-scene.world.size/2-EPS&&b.x1<=scene.world.size/2+EPS&&b.z0>=-scene.world.size/2-EPS&&b.z1<=scene.world.size/2+EPS;
   const checkExclusive=(a,b,label)=>{for(const x of a)for(const y of b)if(overlapArea(x.bounds,y.bounds)>EPS)errors.push(`${label}: ${x.id} / ${y.id}`);};
   for(const name of ['roads','parcels','buildings','parks'])for(const item of scene[name])if(!withinWorld(item.bounds))errors.push(`${name} ${item.id} 超出场地`);

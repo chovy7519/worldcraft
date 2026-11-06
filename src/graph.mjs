@@ -3,7 +3,7 @@ export const GRAPH_VERSION=2;
 export const NODE_DEFS=Object.freeze({
   seed:{name:'World Input',cn:'世界输入',subtitle:'场地范围 / 确定性种子',required:true,params:['size','seed']},
   promenade:{name:'Promenade Rule',cn:'主街规则',subtitle:'设置主街路幅',params:['promenadeWidth']},
-  roads:{name:'Road Network',cn:'道路网络',subtitle:'道路走廊优先确定，无相互覆盖',required:true,params:['roadSpacing','roadWidth']},
+  roads:{name:'Road Network',cn:'道路网络',subtitle:'正交街网 / 可编辑斜向主路 · 道路拓扑',required:true,params:['roadSpacing','roadWidth','diagonalWidth','diagonalAngle','diagonalOffset']},
   parcels:{name:'Parcel Subdivision',cn:'地块划分',subtitle:'道路围合区块 → 有路权的地块',required:true,params:['parcelTargetWidth']},
   plaza:{name:'Civic Open Space',cn:'中心绿心',subtitle:'将中心地块预留为公园',params:['plazaRadius']},
   landuse:{name:'Land-use Allocation',cn:'功能分配',subtitle:'住宅 / 商业 / 公服 / 公园',required:true,params:['parkShare','parkSmallMaxArea','parkLargeMinArea']},

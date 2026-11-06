@@ -5,12 +5,13 @@ const read=p=>readFileSync(join(root,p),'utf8');
 const raw=read('index.html');
 const css=read('styles.css');
 const stripExport=s=>s.replace(/^export\s+/gm,'');
-const spatial=stripExport(read('src/spatial.mjs'));
+const polygonal=stripExport(read('src/polygonal.mjs'));
+const spatial=stripExport(read('src/spatial.mjs')).replace(/^import[^\n]+;\s*$/gm,'');
 const pcg=stripExport(read('src/pcg.mjs')).replace(/^import[^\n]+;\s*$/gm,'');
 const renderer=stripExport(read('src/renderer.js'));
 const graph=stripExport(read('src/graph.mjs'));
 const app=read('src/app.js').replace(/^import[^\n]+;\s*$/gm,'');
-const bundle=`'use strict';\n${spatial}\nconst __pcg = (()=>{\n${pcg}\nreturn { DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport };\n})();\nconst __graph = (()=>{
+const bundle=`'use strict';\nconst __polygonal=(()=>{\n${polygonal}\nreturn {generatePolygonCity,validatePolygonCity};\n})();\nconst {generatePolygonCity,validatePolygonCity}=__polygonal;\n${spatial}\nconst __pcg = (()=>{\n${pcg}\nreturn { DEFAULT_WORLD, generateCity, parseCommand, applyCommand, compareScenes, validateWorld, makeExport, readExport };\n})();\nconst __graph = (()=>{
 ${graph}
 return { NODE_DEFS, defaultGraph, checkGraphShape, evaluateGraph, moveGraphNode, connectGraph, removeGraphNode, addGraphNode, setGraphNodeActive, graphFromFile };
 })();

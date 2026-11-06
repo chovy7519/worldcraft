@@ -1,6 +1,6 @@
 /** WorldCraft V0.3 — stable city rules, deterministic spatial pipeline. */
 import {generateSpatialCity} from './spatial.mjs';
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 export const DEFAULT_WORLD = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
   name: 'Coastal Future City',
@@ -13,6 +13,9 @@ export const DEFAULT_WORLD = Object.freeze({
   promenadeWidth: 10.5,
   roadSpacing: 100,
   roadWidth: 10,
+  diagonalWidth: 12,
+  diagonalAngle: 35,
+  diagonalOffset: 0,
   parcelTargetWidth: 42,
   parkShare: 0.20,
   parkSmallMaxArea: 1500,
@@ -41,12 +44,12 @@ export function randomFor(seed, x, z, channel = 0) {
 
 export function validateWorld(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('无效的世界文件');
-  if (![1,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
+  if (![1,2,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
   const world = {};
   for (const key of Object.keys(DEFAULT_WORLD)) {
-    world[key] = key==='schemaVersion' ? SCHEMA_VERSION : (input[key] ?? DEFAULT_WORLD[key]);
+    world[key] = key==='schemaVersion' ? SCHEMA_VERSION : (input.schemaVersion<3 && key==='diagonalWidth' ? 0 : (input[key] ?? DEFAULT_WORLD[key]));
   }
-  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius','promenadeWidth','roadSpacing','roadWidth','parcelTargetWidth','parkShare','parkSmallMaxArea','parkLargeMinArea','buildingSetback','treeSpacing','treeRoadSetback','treeDensity','parkTreeSpacing','treeCrownRadius','treeBuildingClearance'];
+  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius','promenadeWidth','roadSpacing','roadWidth','diagonalWidth','diagonalAngle','diagonalOffset','parcelTargetWidth','parkShare','parkSmallMaxArea','parkLargeMinArea','buildingSetback','treeSpacing','treeRoadSetback','treeDensity','parkTreeSpacing','treeCrownRadius','treeBuildingClearance'];
   for (const key of nums) if (typeof world[key] !== 'number' || !Number.isFinite(world[key])) throw new Error(`参数 ${key} 必须为有限数字`);
   if (!Number.isInteger(world.seed) || world.seed < 0 || world.seed > 1000000000) throw new Error('随机种子必须是 0–1,000,000,000 的整数');
   if (!Number.isInteger(world.size) || world.size < 200 || world.size > 800 || world.size % 20 !== 0) throw new Error('世界尺寸应为 200–800m 且为 20 的倍数');
@@ -59,6 +62,9 @@ export function validateWorld(input) {
   if (typeof world.name !== 'string' || world.name.length > 120) throw new Error('世界名称无效');
   if(!Number.isInteger(world.roadSpacing)||world.roadSpacing<60||world.roadSpacing>160||world.roadSpacing%20!==0)throw Error('道路间距须在 60–160m，且为 20m 的倍数');
   if(world.roadWidth<6||world.roadWidth>22||world.roadWidth>=world.roadSpacing/3)throw Error('道路宽度须为 6–22m 且小于道路间距的三分之一');
+  if((world.diagonalWidth!==0 && (world.diagonalWidth<6||world.diagonalWidth>22)))throw Error('斜向道路宽度为 0（关闭）或 6–22m');
+  if(world.diagonalAngle<15||world.diagonalAngle>75)throw Error('斜向道路角度必须为 15–75 度');
+  if(Math.abs(world.diagonalOffset)>world.size/3)throw Error('斜路中心线偏移不得超过场地宽度的三分之一');
   if(world.parcelTargetWidth<25||world.parcelTargetWidth>90)throw Error('地块目标尺度须为 25–90m');
   if(world.parkShare<0||world.parkShare>0.65)throw Error('公园地块比例须为 0–65%');
   if(world.parkSmallMaxArea<200||world.parkSmallMaxArea>=world.parkLargeMinArea||world.parkLargeMinArea>18000)throw Error('公园面积分级无效');
@@ -107,6 +113,20 @@ export function parseCommand(text) {
     let size=sizeMatch?Number(sizeMatch[1]):400;
     if(size<200 || size>800 || size%20!==0) return {type:'error',message:'世界尺寸须在 200–800m 之间，且为 20m 的倍数。'};
     return {type:'generate',size,description:`生成 ${size}×${size}m 程序化未来城市`};
+  }
+  if(has(s,['关闭斜路','移除斜路','删除斜向道路','禁用斜路','remove diagonal'])) return {type:'set',key:'diagonalWidth',value:0,description:'关闭斜向主路'};
+  if(has(s,['添加斜路','增加斜路','开启斜路','启用斜路','生成斜路','add diagonal'])) return {type:'set',key:'diagonalWidth',value:12,description:'启用斜向主路'};
+  if(has(s,['斜路角度','斜向道路角度','道路斜角','diagonal angle'])) {
+    const found=s.match(/(\d+(?:\.\d+)?)\s*(?:度|°|degrees)?/);if(!found)return {type:'error',message:'请指定斜向道路角度，如「斜路角度设为 35 度」。'};
+    const value=Number(found[1]);return {type:'set',key:'diagonalAngle',value,description:`斜路角度设置为 ${value} 度`};
+  }
+  if(has(s,['斜路偏移','斜向道路偏移','diagonal offset'])) {
+    const found=s.match(/(-?\d+(?:\.\d+)?)\s*(?:m|米)?/);if(!found)return {type:'error',message:'请输入斜路偏移米数。'};
+    const value=Number(found[1]);return {type:'set',key:'diagonalOffset',value,description:`斜路偏移设为 ${value}m`};
+  }
+  if(has(s,['斜路宽度','斜向道路宽度','diagonal width'])) {
+    const found=s.match(/(\d+(?:\.\d+)?)\s*(?:m|米)?/);if(!found)return {type:'error',message:'请输入斜路宽度（0 表示关闭）。'};
+    const value=Number(found[1]);return {type:'set',key:'diagonalWidth',value,description:`斜路宽度设为 ${value}m`};
   }
   const spatialParamRules=[
     {terms:['道路间距','路网间距','road spacing'],key:'roadSpacing',unit:'m'},
@@ -193,6 +213,6 @@ export function makeExport(world,history=[]) {
 }
 
 export function readExport(doc) {
-  if(!doc||doc.format!=='WorldCraft'||![1,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
+  if(!doc||doc.format!=='WorldCraft'||![1,2,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
   return validateWorld(doc.world);
 }

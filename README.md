@@ -1,8 +1,10 @@
-# WorldCraft V0.3 — Natural-Language Procedural World Studio
+> **V0.4 新增**：斜向直线道路的角度/偏移/路幅控制，真实凸多边形道路裁切、非矩形地块、建筑多边形退界和树木几何避让。详见 [Road Geometry V0.4](docs/ROAD_GEOMETRY_V04.md)。
+
+# WorldCraft V0.4 — Natural-Language Procedural World Studio
 
 以**自然语言 + 可编辑 PCG Graph + 确定性的空间规则**构建可持续修改的三维城市。首版空间链路已从基础建筑体量，扩展为 **道路网络 → 地块划分 → 功能分配 → 多类型建筑 / 多尺度公园 → 道路与地块协调的树木**。
 
-![WorldCraft V0.3 Spatial PCG Workspace](preview-spatial-v0.3.jpg)
+![WorldCraft V0.4 Spatial PCG Workspace](preview-spatial-v0.3.jpg)
 
 ## 立即运行
 
@@ -18,7 +20,7 @@ npm run serve
 
 `npm run build` 根据 `index.html`、`styles.css` 与 `src/` 构建最新单文件 `worldcraft.html`。
 
-## V0.3 核心功能
+## V0.4 核心功能
 
 - 旋转 / 缩放 / 平移 3D 场景，选择建筑查看功能、类型、位置、面积。
 - 12 模块 PCG Graph：拖动节点、端口重连、插入/绕过可选规则，必需依赖不能越过。
@@ -70,3 +72,13 @@ npm run serve
 > **限制：** 当前生成道路是正交道路网；公园为矩形地块，树林采用二维树冠投影冲突校验。参数中的「公园地块比例」是采样概率，不等于最终面积占比；中心绿心会额外指定公园地块。水系与地形仅保留扩展合同，尚未实现。项目目前是程序化三维场景原型，不能替代工程规划审批或高精度交通/环境计算。
 
 详细规则与验证协议请阅读 [PCG Pipeline 设计文档](docs/PCG_PIPELINE.md)。
+
+## V0.4 斜路与多边形地块
+
+- 默认场景启用 12m、35° 的斜向主路；可在右侧“道路网络”模块和全局参数中调整斜路宽度、角度与偏移。
+- 自然语言支持：`斜路角度设为 50 度`、`斜路偏移设为 -20m`、`斜路宽度设为 16m`、`关闭斜路`、`添加斜路`。
+- `diagonalWidth=0` 可以切回 V0.3 的直交路网；旧场景导入会自动选择此兼容模式。
+- 道路、地块、公园与建筑的实际占地基于多边形，不是旋转的矩形贴图。
+- **V0.4 的“拓扑编辑”是有限制的：编辑贯通道路的角度、宽度与位置，从而改变交点与街区；尚未提供鼠标自由拖拽道路顶点或任意复杂曲线网络。**
+
+测试：`npm run verify`（含基础回归与新多边形测试）；浏览器手工验收建议使用 `npm run serve`。

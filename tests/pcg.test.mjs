@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEFAULT_WORLD,generateCity,parseCommand,applyCommand,compareScenes,validateWorld,makeExport,readExport} from '../src/pcg.mjs';
 import {STAGE_DEPENDENCIES,EXTENSION_SLOTS,validateSpatialInvariants,overlapArea} from '../src/spatial.mjs';
+import {polygonsOverlap} from '../src/polygonal.mjs';
 const get=world=>generateCity(world);
 test('same seed and parameters produce byte-identical spatial artifacts',()=>{
   assert.deepEqual(get(DEFAULT_WORLD),get(DEFAULT_WORLD));
@@ -24,7 +25,7 @@ test('all geometric invariants pass, and road + parcel footprints tile the whole
   assert.equal(check.valid,true,check.errors.slice(0,10).join('\n'));
   const sum=s.roads.reduce((v,r)=>v+r.area,0)+s.parcels.reduce((v,p)=>v+p.area,0);
   assert.ok(Math.abs(sum-s.world.size**2)<.01,`coverage gap ${sum-s.world.size**2}`);
-  for(const p of s.parcels)for(const road of s.roads)assert.equal(overlapArea(p.bounds,road.bounds),0);
+  for(const p of s.parcels)for(const road of s.roads)assert.equal(s.geometryMode?polygonsOverlap(p.vertices,road.vertices):overlapArea(p.bounds,road.bounds)>0,false);
   assert.ok(s.buildings.every(b=>b.width>0&&b.depth>0));
 });
 test('parameter combinations, different seeds and world sizes maintain collision-free layouts',()=>{
@@ -73,7 +74,8 @@ test('natural language parameter changes update actual road/parcel/park/tree gen
 test('legacy version 1 world saves migrate with default spatial params',()=>{
   const old={schemaVersion:1,size:400,seed:42,name:'Legacy World',eastDensity:.8,westDensity:.8,heightScale:1,plazaRadius:60,promenadeWidth:10.5,style:'future'};
   const migrated=validateWorld(old);
-  assert.equal(migrated.schemaVersion,2);
+  assert.equal(migrated.schemaVersion,3);
+  assert.equal(migrated.diagonalWidth,0,'legacy cities preserve rectilinear road layout');
   assert.equal(migrated.roadSpacing,DEFAULT_WORLD.roadSpacing);
   const currentDoc=makeExport(DEFAULT_WORLD);
   assert.deepEqual(readExport(JSON.parse(JSON.stringify(currentDoc))),DEFAULT_WORLD);

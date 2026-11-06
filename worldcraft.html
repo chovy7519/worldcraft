@@ -83,7 +83,7 @@
         <div class="brandtext"><strong>WorldCraft</strong><span>PROCEDURAL WORLD STUDIO</span></div>
       </div>
       <span class="top-divider"></span>
-      <div class="breadcrumb"><span>Workspace</span><span class="chevron">/</span><strong id="project-name">Coastal Future City</strong><span class="version">V0.3</span></div>
+      <div class="breadcrumb"><span>Workspace</span><span class="chevron">/</span><strong id="project-name">Coastal Future City</strong><span class="version">V0.4</span></div>
       <div class="toolbar-actions">
         <span class="status"><i></i><span>LOCAL ENGINE</span></span>
         <button class="btn ghost small" id="undo-btn" title="撤销 (Ctrl/⌘ + Z)">↶ <span>撤销</span></button>
@@ -127,7 +127,7 @@
           </div>
           <section class="command-console" id="command-pane" hidden>
           <div class="console-header"><div><span class="sparkle">✦</span><strong>World Command</strong><span class="console-kicker">用自然语言修改生成规则</span></div><span class="engine-badge">规则解析 · 离线</span></div>
-          <form id="command-form" class="command-form"><textarea id="command-input" rows="2" placeholder="例如：道路间距设为 80m；公园比例设为 30%" spellcheck="false"></textarea><button class="send-btn" type="submit" id="send-btn" title="执行指令">↗</button></form>
+          <form id="command-form" class="command-form"><textarea id="command-input" rows="2" placeholder="例如：斜路角度设为 35 度；斜路宽度设为 12m" spellcheck="false"></textarea><button class="send-btn" type="submit" id="send-btn" title="执行指令">↗</button></form>
           <div class="prompt-examples" id="prompt-examples"></div>
           <div class="command-feedback" id="command-feedback" role="status" aria-live="polite"><span class="feedback-icon">✓</span><span>城市已生成。选择一项规则或输入自然语言指令开始迭代。</span></div>
           </section>
@@ -150,6 +150,292 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script>
 'use strict';
+const __polygonal=(()=>{
+/** WorldCraft V0.4 experimental convex-polygon PCG for connected grid + oblique through-road.
+ * Geometry is kept in local metric X/Z coordinates; all clipping is on convex polygons.
+ * Deliberate scope: straight through-corridors, not arbitrary clipped cul-de-sacs or GIS routing.
+ */
+const GEOMETRY_MODEL = 'convex-polygons-v1';
+const EPS=1e-7;
+const rn=n=>Math.round(n*1e6)/1e6;
+const dot=(p,n)=>p[0]*n[0]+p[1]*n[1];
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1]];
+const cross=(a,b)=>a[0]*b[1]-a[1]*b[0];
+const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+const lerp=(a,b,t)=>[rn(a[0]+(b[0]-a[0])*t),rn(a[1]+(b[1]-a[1])*t)];
+const polygonArea=p=>Math.abs(p.reduce((s,a,i)=>s+cross(a,p[(i+1)%p.length]),0)/2);
+function polygonCentroid(p){let sx=0,sz=0,w=0;for(let i=0;i<p.length;i++){let a=p[i],b=p[(i+1)%p.length],d=cross(a,b);sx+=(a[0]+b[0])*d;sz+=(a[1]+b[1])*d;w+=d;}return Math.abs(w)>EPS?[rn(sx/(3*w)),rn(sz/(3*w))]:[rn(p.reduce((a,v)=>a+v[0],0)/p.length),rn(p.reduce((a,v)=>a+v[1],0)/p.length)];}
+function polygonBounds(p){return {x0:Math.min(...p.map(v=>v[0])),x1:Math.max(...p.map(v=>v[0])),z0:Math.min(...p.map(v=>v[1])),z1:Math.max(...p.map(v=>v[1]))};}
+const clean=p=>{
+  let out=[];for(const v of p){const q=[rn(v[0]),rn(v[1])];if(!out.length||dist(out.at(-1),q)>1e-6)out.push(q);}
+  if(out.length>1&&dist(out[0],out.at(-1))<1e-6)out.pop();
+  if(out.length<3||polygonArea(out)<1e-6)return [];
+  return out.filter((v,i)=>Math.abs(cross(sub(out[(i+1)%out.length],v),sub(out[(i+out.length-1)%out.length],v)))>1e-7);
+};
+/** Clip a convex polygon against n·point <= threshold. */
+function clipHalfPlane(poly,n,threshold){
+  if(!poly?.length)return [];
+  const out=[];
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i],b=poly[(i+1)%poly.length],va=dot(a,n)-threshold,vb=dot(b,n)-threshold;
+    if(va<=EPS)out.push(a);
+    if((va < -EPS&&vb>EPS)||(va>EPS&&vb < -EPS))out.push(lerp(a,b,va/(va-vb)));
+  }
+  return clean(out);
+}
+function clipStrip(poly,n,c0,c1){return clipHalfPlane(clipHalfPlane(poly,n,c1),[-n[0],-n[1]],-c0);}
+function polygonIntersection(a,b){
+  if(!a?.length||!b?.length)return [];
+  let out=a;
+  const sign=b.reduce((s,p,i)=>s+cross(p,b[(i+1)%b.length]),0)>=0?1:-1;
+  for(let i=0;i<b.length;i++){
+    let v=b[i],w=b[(i+1)%b.length],d=sub(w,v),n=[sign*d[1],-sign*d[0]];
+    out=clipHalfPlane(out,n,dot(v,n));if(!out.length)return [];
+  }
+  return out;
+}
+function containsPoint(poly,p,margin=0){
+  if(!poly?.length)return false;
+  const sign=poly.reduce((s,v,i)=>s+cross(v,poly[(i+1)%poly.length]),0)>=0?1:-1;
+  return poly.every((v,i)=>{const w=poly[(i+1)%poly.length],d=sub(w,v),len=Math.hypot(...d);return sign*cross(d,sub(p,v))>=margin*len-EPS;});
+}
+function insetPolygon(poly,margin){
+  if(!poly.length)return [];
+  let out=poly;
+  const sign=poly.reduce((s,v,i)=>s+cross(v,poly[(i+1)%poly.length]),0)>=0?1:-1;
+  for(let i=0;i<poly.length;i++){
+    let a=poly[i],b=poly[(i+1)%poly.length],d=sub(b,a),len=Math.hypot(...d);if(len<EPS)continue;
+    const n=[sign*d[1]/len,-sign*d[0]/len];
+    out=clipHalfPlane(out,n,dot(a,n)-margin);
+    if(!out.length)return [];
+  }
+  return out;
+}
+function segmentDistance(p,a,b){const d=sub(b,a),len=dot(d,d);const t=len===0?0:Math.max(0,Math.min(1,dot(sub(p,a),d)/len));return dist(p,lerp(a,b,t));}
+function circlePolygonConflict(p,r,poly){return containsPoint(poly,p)||poly.some((a,i)=>segmentDistance(p,a,poly[(i+1)%poly.length]) < r-EPS);}
+function polygonsOverlap(a,b){return polygonArea(polygonIntersection(a,b))>1e-4;}
+function commonEdge(a,b){
+  const result=[];
+  for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++){
+    const p=a[i],q=a[(i+1)%a.length],r=b[j],s=b[(j+1)%b.length],u=sub(q,p),v=sub(s,r),uLen=Math.hypot(...u);
+    if(uLen<EPS||Math.abs(cross(u,v))>1e-4*uLen*Math.hypot(...v)||Math.abs(cross(u,sub(r,p)))>1e-4*uLen)continue;
+    const ux=u[0]/uLen,uz=u[1]/uLen;
+    const r0=(r[0]-p[0])*ux+(r[1]-p[1])*uz,r1=(s[0]-p[0])*ux+(s[1]-p[1])*uz;
+    const lo=Math.max(0,Math.min(r0,r1)),hi=Math.min(uLen,Math.max(r0,r1));
+    if(hi-lo>0.15)result.push({from:[rn(p[0]+ux*lo),rn(p[1]+uz*lo)],to:[rn(p[0]+ux*hi),rn(p[1]+uz*hi)],length:hi-lo});
+  }
+  return result;
+}
+function frontageEdges(poly,roadPolys){
+  const found=[];
+  for(const road of roadPolys)for(const e of commonEdge(poly,road.vertices))found.push({...e,roadId:road.axisId||road.id});
+  return found;
+}
+function spatial(id,vertices){const c=polygonCentroid(vertices),bounds=polygonBounds(vertices);return {id,vertices,...{x:c[0],z:c[1],bounds,area:rn(polygonArea(vertices)),width:rn(bounds.x1-bounds.x0),depth:rn(bounds.z1-bounds.z0)}};}
+function square(size){let h=size/2;return [[-h,-h],[h,-h],[h,h],[-h,h]];}
+function randomCell(rng,seed,p,channel){return rng(seed,Math.round(p.x*5),Math.round(p.z*5),channel);}
+/** Straight road axes: full-length orthogonal roads and one configurable oblique through-road. */
+function makeRoadAxes(world,features={}){
+  const s=world.size,h=s/2,axes=[];
+  const centers=[];for(let v=-h+world.roadSpacing/2;v<h-1e-6;v+=world.roadSpacing)centers.push(rn(v));
+  for(let i=0;i<centers.length;i++)for(const orientation of ['NS','EW']){
+    const c=centers[i],special=features.promenade!==false&&Math.abs(c)===Math.min(...centers.map(Math.abs));
+    const width=special?Math.max(world.roadWidth,world.promenadeWidth):world.roadWidth;
+    axes.push({id:`axis-${orientation}-${i}`,from:orientation==='NS'?[c,-h]:[-h,c],to:orientation==='NS'?[c,h]:[h,c],width,kind:special?'promenade':'local'});
+  }
+  if(world.diagonalWidth>0){
+    const angle=world.diagonalAngle*Math.PI/180,d=[Math.cos(angle),Math.sin(angle)],n=[-d[1],d[0]],offset=world.diagonalOffset;
+    const center=[n[0]*offset,n[1]*offset],reach=s*1.5;
+    axes.push({id:'axis-oblique',from:[rn(center[0]-reach*d[0]),rn(center[1]-reach*d[1])],to:[rn(center[0]+reach*d[0]),rn(center[1]+reach*d[1])],width:world.diagonalWidth,kind:'arterial'});
+  }
+  return axes;
+}
+function segmentIntersection(a,b,c,d){
+  const r=sub(b,a),s=sub(d,c),den=cross(r,s);if(Math.abs(den)<1e-8)return null;
+  const t=cross(sub(c,a),s)/den,u=cross(sub(c,a),r)/den;
+  if(t<-EPS||t>1+EPS||u<-EPS||u>1+EPS)return null;
+  return {p:lerp(a,b,t),t,u};
+}
+function clipLineToSquare(a,b,size){
+  const h=size/2,d=sub(b,a);let t0=0,t1=1;
+  for(let k=0;k<2;k++)for(const [p,q] of [[-d[k],a[k]+h],[d[k],h-a[k]]]){
+    if(Math.abs(p)<1e-10){if(q<0)return null;}else{const t=q/p;if(p<0)t0=Math.max(t0,t);else t1=Math.min(t1,t);}
+  }
+  return t1-t0>1e-6?[lerp(a,b,t0),lerp(a,b,t1)]:null;
+}
+function createRoadTopology(axes,worldSize){
+  const lines=axes.map(a=>({...a,clipped:clipLineToSquare(a.from,a.to,worldSize)})).filter(a=>a.clipped);
+  const points=new Map();const perLine=new Map(lines.map(a=>[a.id,[]]));
+  const add=(p,id)=>{let key=p.map(v=>rn(v).toFixed(4)).join('/');if(!points.has(key))points.set(key,{id:`J-${key}`,x:rn(p[0]),z:rn(p[1])});perLine.get(id).push({key,p});};
+  for(const line of lines){add(line.clipped[0],line.id);add(line.clipped[1],line.id);}
+  for(let i=0;i<lines.length;i++)for(let j=i+1;j<lines.length;j++){
+    const hit=segmentIntersection(...lines[i].clipped,...lines[j].clipped);
+    if(hit){add(hit.p,lines[i].id);add(hit.p,lines[j].id);}
+  }
+  const edges=[];
+  for(const line of lines){let p=perLine.get(line.id),a=line.clipped[0],d=sub(line.clipped[1],a);
+    p.sort((x,y)=>dot(sub(x.p,a),d)-dot(sub(y.p,a),d));
+    for(let i=0;i<p.length-1;i++)if(dist(p[i].p,p[i+1].p)>1e-5)edges.push({id:`E-${line.id}-${i}`,from:points.get(p[i].key).id,to:points.get(p[i+1].key).id,axisId:line.id,width:line.width});
+  }
+  return {nodes:[...points.values()],edges,axes:lines.map(({clipped,...axis})=>({...axis,clipped}))};
+}
+function carveRoads(world,axes){
+  let land=[square(world.size)],roads=[],i=0;
+  for(const axis of axes){
+    const dir=sub(axis.to,axis.from),len=Math.hypot(...dir),n=[-dir[1]/len,dir[0]/len];
+    const t=dot(axis.from,n),lo=t-axis.width/2,hi=t+axis.width/2,next=[];
+    for(const cell of land){
+      const mid=clipStrip(cell,n,lo,hi);
+      if(mid.length)roads.push({...spatial(`R-${i++}`,mid),axisId:axis.id,kind:axis.kind});
+      const left=clipHalfPlane(cell,n,lo),right=clipHalfPlane(cell,[-n[0],-n[1]],-hi);
+      if(left.length)next.push(left);if(right.length)next.push(right);
+    }
+    land=next;
+  }
+  return {roads,blocks:land.map((p,i)=>spatial(`BL-${i}`,p))};
+}
+function assignParcels(world,blocks,roads){
+  const parcels=[];
+  for(const block of blocks){
+    const shape=block.vertices,box=block.bounds;
+    const target=world.parcelTargetWidth;
+    const variants=[];
+    for(const axis of [0,1]){
+      const spread=axis===0?box.x1-box.x0:box.z1-box.z0;
+      const count=Math.max(1,Math.min(4,Math.round(spread/target)));
+      let lots=[];
+      for(let i=0;i<count;i++){
+        const lo=(axis===0?box.x0:box.z0)+spread*i/count,hi=(axis===0?box.x0:box.z0)+spread*(i+1)/count;
+        const n=axis===0?[1,0]:[0,1];const p=clipStrip(shape,n,lo,hi);
+        if(!p.length||polygonArea(p)<30)continue;
+        const lot=spatial(`${block.id}-P${i}`,p);
+        lot.blockId=block.id;lot.frontageEdges=frontageEdges(p,roads);
+        lot.frontageIds=[...new Set(lot.frontageEdges.map(f=>f.roadId))];
+        lots.push(lot);
+      }
+      if(lots.length&&lots.every(p=>p.frontageIds.length))variants.push(lots);
+    }
+    // Splitting is conservative: if any resulting lot would be landlocked, keep the parent block.
+    const best=variants.sort((a,b)=>b.length-a.length)[0];
+    let chosen=best??[];
+    if(!chosen.length){const lot={...block,id:`${block.id}-P0`,blockId:block.id,frontageEdges:frontageEdges(shape,roads)};lot.frontageIds=[...new Set(lot.frontageEdges.map(e=>e.roadId))];chosen=[lot];}
+    // Marginal sliver blocks are held as public reserve if frontage is absent (site edge artifacts).
+    for(const p of chosen)parcels.push(p);
+  }
+  return parcels;
+}
+function distributeUse(world,parcels,features,rng){
+  const useList=['residential','commercial','civic','park'];
+  return parcels.map(p=>{
+    const chance=randomCell(rng,world.seed,p,217),distance=Math.hypot(p.x,p.z);
+    const use=(features.plaza!==false&&distance<world.plazaRadius)?'park':chance<world.parkShare?'park':(distance<world.size*.27&&chance<world.parkShare+.25)?'commercial':chance>.91?'civic':'residential';
+    const parkClass=use==='park'?(p.area<world.parkSmallMaxArea?'small':p.area<world.parkLargeMinArea?'medium':'large'):null;
+    return {...p,use,parkClass};
+  });
+}
+function createBuildings(world,parcels,features,rng){
+  const buildings=[];
+  for(const p of parcels){
+    if(p.use==='park'||p.area<80)continue;
+    if(randomCell(rng,world.seed,p,219)>=(p.x>=0?world.eastDensity:world.westDensity))continue;
+    const usable=insetPolygon(p.vertices,world.buildingSetback);
+    if(!usable.length||polygonArea(usable)<45)continue;
+    const c=polygonCentroid(usable),tone=randomCell(rng,world.seed,p,220),factor=.72;
+    const footprint=usable.map(v=>[rn(c[0]+(v[0]-c[0])*factor),rn(c[1]+(v[1]-c[1])*factor)]);
+    const shape=spatial(`B-${p.id}`,footprint),heightWeight=Math.max(0,1-Math.hypot(p.x,p.z)/(world.size*.75));
+    const type=p.use==='commercial'?'commercial':p.use==='civic'?'civic':tone>.7?'tower':tone>.38?'terraced':'slab';
+    buildings.push({...shape,parcelId:p.id,blockId:p.blockId,region:p.x>=0?'东侧':'西侧',use:p.use,type,tone,height:rn(((p.use==='civic'?10:p.use==='commercial'?25:12)+heightWeight*(40+tone*50))*(features.height===false?1:world.heightScale)),footprint:shape.area});
+  }
+  return buildings;
+}
+function createTrees(world,parcels,buildings,roads,rng){
+  const trees=[],occupied=[],R=world.treeCrownRadius;
+  const add=(id,x,z,kind,p)=>{
+    const point=[rn(x),rn(z)];
+    if(!containsPoint(p.vertices,point,R+.3))return;
+    if(roads.some(road=>circlePolygonConflict(point,R,road.vertices)))return;
+    if(buildings.some(b=>circlePolygonConflict(point,R+world.treeBuildingClearance,b.vertices)))return;
+    if(occupied.some(t=>dist(t,point)<R*2+.3))return;
+    occupied.push(point);trees.push({id,x:point[0],z:point[1],kind,parcelId:p.id,height:rn(3.5+randomCell(rng,world.seed,p,284)*3.6),crownRadius:R});
+  };
+  for(const parcel of parcels){
+    for(const [j,e] of parcel.frontageEdges.entries()){
+      const len=dist(e.from,e.to),n=Math.floor(len/world.treeSpacing),middle=polygonCentroid(parcel.vertices);
+      for(let k=0;k<n;k++){
+        if(rng(world.seed,Math.round(parcel.x)+j,Math.round(parcel.z)+k,260)>world.treeDensity)continue;
+        const t=(k+.5)/n,side=lerp(e.from,e.to,t),dir=sub(middle,side),lenDir=Math.hypot(...dir);
+        if(lenDir<EPS)continue;
+        add(`TS-${parcel.id}-${j}-${k}`,side[0]+dir[0]/lenDir*world.treeRoadSetback,side[1]+dir[1]/lenDir*world.treeRoadSetback,'street',parcel);
+      }
+    }
+    if(parcel.use!=='park')continue;
+    const b=parcel.bounds,step=world.parkTreeSpacing;
+    for(let zi=0;zi<Math.ceil((b.z1-b.z0)/step);zi++)for(let xi=0;xi<Math.ceil((b.x1-b.x0)/step);xi++){
+      if(rng(world.seed,Math.round(parcel.x)+xi,Math.round(parcel.z)+zi,276)>world.treeDensity*.8)continue;
+      const dx=(rng(world.seed,xi,zi,277)-.5)*step*.25,dz=(rng(world.seed,xi,zi,278)-.5)*step*.25;
+      add(`TP-${parcel.id}-${xi}-${zi}`,b.x0+(xi+.5)*step+dx,b.z0+(zi+.5)*step+dz,'park',parcel);
+    }
+  }
+  return trees;
+}
+/** Replaces rectangle-based downstream stages when a diagonal road is enabled. */
+function generatePolygonCity(world,features,rng){
+  const axes=makeRoadAxes(world,features),roadGraph=createRoadTopology(axes,world.size),carved=carveRoads(world,axes);
+  const parcels=distributeUse(world,assignParcels(world,carved.blocks,carved.roads),features,rng);
+  const buildings=createBuildings(world,parcels,features,rng);
+  const parks=parcels.filter(p=>p.use==='park').map(p=>({...p,id:`P-${p.id}`,parcelId:p.id,kind:p.parkClass}));
+  const trees=createTrees(world,parcels,buildings,carved.roads,rng);
+  const footprint=buildings.reduce((s,b)=>s+b.area,0),roadArea=carved.roads.reduce((s,r)=>s+r.area,0);
+  const metrics={total:buildings.length,east:buildings.filter(b=>b.region==='东侧').length,west:buildings.filter(b=>b.region==='西侧').length,
+    eastEligible:parcels.filter(p=>p.use!=='park'&&p.x>=0).length,westEligible:parcels.filter(p=>p.use!=='park'&&p.x<0).length,
+    coverage:footprint/(world.size*world.size),avgHeight:buildings.length?buildings.reduce((s,b)=>s+b.height,0)/buildings.length:0,
+    maxHeight:Math.max(0,...buildings.map(b=>b.height)),plazaArea:features.plaza===false?0:Math.PI*world.plazaRadius**2,
+    roadSegments:carved.roads.length,roadArea,parcelCount:parcels.length,parkCount:parks.length,parkArea:parks.reduce((s,p)=>s+p.area,0),
+    parkSizes:{small:parks.filter(p=>p.kind==='small').length,medium:parks.filter(p=>p.kind==='medium').length,large:parks.filter(p=>p.kind==='large').length},
+    treeCount:trees.length,streetTrees:trees.filter(t=>t.kind==='street').length,parkTrees:trees.filter(t=>t.kind==='park').length,
+    buildingUses:{residential:buildings.filter(b=>b.use==='residential').length,commercial:buildings.filter(b=>b.use==='commercial').length,civic:buildings.filter(b=>b.use==='civic').length}};
+  return {geometryMode:GEOMETRY_MODEL,world,features,roads:carved.roads,roadLines:axes.map(a=>({id:`RL-${a.id}`,from:a.from,to:a.to,kind:a.kind})),roadGraph,
+    blocks:carved.blocks,parcels,buildings,parks,trees,metrics,
+    pipeline:[{stage:'roads',count:carved.roads.length},{stage:'parcels',count:parcels.length},{stage:'landuse',count:parcels.length},{stage:'buildings',count:buildings.length},{stage:'parks',count:parks.length},{stage:'trees',count:trees.length}]};
+}
+/** Polygon-accurate checks; bounding boxes alone are never used for collision decisions. */
+function validatePolygonCity(scene){
+  const errors=[],h=scene.world.size/2;
+  const collections=['roads','parcels','buildings','parks'];
+  const insideWorld=p=>p.vertices.every(v=>Math.abs(v[0])<=h+1e-5&&Math.abs(v[1])<=h+1e-5);
+  for(const key of collections)for(const p of scene[key]){
+    if(!insideWorld(p))errors.push(`${key} out of site ${p.id}`);
+    if(p.area<1e-4||Math.abs(p.area-polygonArea(p.vertices))>1e-3)errors.push(`${key} invalid area ${p.id}`);
+  }
+  const noOverlap=(a,b,label,same=false)=>{
+    for(let i=0;i<a.length;i++)for(let j=same?i+1:0;j<b.length;j++)if(polygonsOverlap(a[i].vertices,b[j].vertices))errors.push(`${label} ${a[i].id}/${b[j].id}`);
+  };
+  for(const key of collections)noOverlap(scene[key],scene[key],`${key} overlap`,true);
+  noOverlap(scene.roads,scene.parcels,'road/parcel');noOverlap(scene.roads,scene.buildings,'road/building');noOverlap(scene.roads,scene.parks,'road/park');noOverlap(scene.buildings,scene.parks,'building/park');
+  const total=scene.roads.reduce((s,p)=>s+p.area,0)+scene.parcels.reduce((s,p)=>s+p.area,0);
+  if(Math.abs(total-scene.world.size**2)>0.25)errors.push(`coverage area mismatch ${total}`);
+  const parcelMap=new Map(scene.parcels.map(p=>[p.id,p]));
+  for(const p of scene.parcels){if(!p.frontageIds.length)errors.push(`landlocked parcel ${p.id}`);if(!['park','residential','commercial','civic'].includes(p.use))errors.push(`unknown use ${p.id}`);}
+  for(const b of scene.buildings){const p=parcelMap.get(b.parcelId);if(!p||!b.vertices.every(v=>containsPoint(p.vertices,v,scene.world.buildingSetback-0.001)))errors.push(`setback violated ${b.id}`);}
+  const parks=new Set(scene.parks.map(p=>p.parcelId));
+  for(const p of scene.parcels)if((p.use==='park')!==parks.has(p.id))errors.push(`park mismatch ${p.id}`);
+  for(const t of scene.trees){
+    const p=parcelMap.get(t.parcelId),pos=[t.x,t.z],r=t.crownRadius;
+    if(!p||!containsPoint(p.vertices,pos,r))errors.push(`tree outside parcel ${t.id}`);
+    if(scene.roads.some(rd=>circlePolygonConflict(pos,r,rd.vertices)))errors.push(`tree road collision ${t.id}`);
+    if(scene.buildings.some(b=>circlePolygonConflict(pos,r+scene.world.treeBuildingClearance,b.vertices)))errors.push(`tree building collision ${t.id}`);
+  }
+  for(let i=0;i<scene.trees.length;i++)for(let j=i+1;j<scene.trees.length;j++)if(Math.hypot(scene.trees[i].x-scene.trees[j].x,scene.trees[i].z-scene.trees[j].z)<scene.trees[i].crownRadius+scene.trees[j].crownRadius-EPS)errors.push(`tree collision ${i}/${j}`);
+  const {nodes,edges}=scene.roadGraph,seen=new Set([nodes[0]?.id]),stack=[nodes[0]?.id];
+  while(stack.length){const node=stack.pop();for(const e of edges)if(e.from===node||e.to===node){const adjacent=e.from===node?e.to:e.from;if(!seen.has(adjacent)){seen.add(adjacent);stack.push(adjacent);}}}
+  if(seen.size!==nodes.length)errors.push(`disconnected road topology ${seen.size}/${nodes.length}`);
+  return {valid:errors.length===0,errors,checks:{roads:scene.roads.length,parcels:scene.parcels.length,buildings:scene.buildings.length,parks:scene.parks.length,trees:scene.trees.length}};
+}
+
+return {generatePolygonCity,validatePolygonCity};
+})();
+const {generatePolygonCity,validatePolygonCity}=__polygonal;
+
 /** WorldCraft V0.3: pure deterministic, axis-aligned spatial PCG pipeline.
  * Local metric X/Z plane. All stages consume upstream artifacts, not rendered meshes.
  */
@@ -355,6 +641,7 @@ function makeTrees(world,assigned,roads,buildings,parks,rng){
   return trees;
 }
 function generateSpatialCity(world,features,rng){
+  if(world.diagonalWidth>0)return {...generatePolygonCity(world,features,rng),extensions:EXTENSION_SLOTS};
   const pipeline=[];
   const roadsStage=makeRoads(world,features);pipeline.push({stage:'roads',count:roadsStage.roads.length});
   const parcelStage=makeParcels(world,roadsStage,rng);pipeline.push({stage:'parcels',count:parcelStage.parcels.length});
@@ -375,6 +662,7 @@ function generateSpatialCity(world,features,rng){
   return {world,features,roads:roadsStage.roads,roadLines:roadsStage.roadLines,blocks:parcelStage.blocks,parcels,buildings,parks,trees,pipeline,metrics,extensions:EXTENSION_SLOTS};
 }
 function validateSpatialInvariants(scene){
+  if(scene.geometryMode==='convex-polygons-v1')return validatePolygonCity(scene);
   const errors=[],withinWorld=b=>b.x0>=-scene.world.size/2-EPS&&b.x1<=scene.world.size/2+EPS&&b.z0>=-scene.world.size/2-EPS&&b.z1<=scene.world.size/2+EPS;
   const checkExclusive=(a,b,label)=>{for(const x of a)for(const y of b)if(overlapArea(x.bounds,y.bounds)>EPS)errors.push(`${label}: ${x.id} / ${y.id}`);};
   for(const name of ['roads','parcels','buildings','parks'])for(const item of scene[name])if(!withinWorld(item.bounds))errors.push(`${name} ${item.id} 超出场地`);
@@ -419,7 +707,7 @@ function validateSpatialInvariants(scene){
 const __pcg = (()=>{
 /** WorldCraft V0.3 — stable city rules, deterministic spatial pipeline. */
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const DEFAULT_WORLD = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
   name: 'Coastal Future City',
@@ -432,6 +720,9 @@ const DEFAULT_WORLD = Object.freeze({
   promenadeWidth: 10.5,
   roadSpacing: 100,
   roadWidth: 10,
+  diagonalWidth: 12,
+  diagonalAngle: 35,
+  diagonalOffset: 0,
   parcelTargetWidth: 42,
   parkShare: 0.20,
   parkSmallMaxArea: 1500,
@@ -460,12 +751,12 @@ function randomFor(seed, x, z, channel = 0) {
 
 function validateWorld(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('无效的世界文件');
-  if (![1,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
+  if (![1,2,SCHEMA_VERSION].includes(input.schemaVersion)) throw new Error('不支持此世界文件版本');
   const world = {};
   for (const key of Object.keys(DEFAULT_WORLD)) {
-    world[key] = key==='schemaVersion' ? SCHEMA_VERSION : (input[key] ?? DEFAULT_WORLD[key]);
+    world[key] = key==='schemaVersion' ? SCHEMA_VERSION : (input.schemaVersion<3 && key==='diagonalWidth' ? 0 : (input[key] ?? DEFAULT_WORLD[key]));
   }
-  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius','promenadeWidth','roadSpacing','roadWidth','parcelTargetWidth','parkShare','parkSmallMaxArea','parkLargeMinArea','buildingSetback','treeSpacing','treeRoadSetback','treeDensity','parkTreeSpacing','treeCrownRadius','treeBuildingClearance'];
+  const nums = ['size','seed','eastDensity','westDensity','heightScale','plazaRadius','promenadeWidth','roadSpacing','roadWidth','diagonalWidth','diagonalAngle','diagonalOffset','parcelTargetWidth','parkShare','parkSmallMaxArea','parkLargeMinArea','buildingSetback','treeSpacing','treeRoadSetback','treeDensity','parkTreeSpacing','treeCrownRadius','treeBuildingClearance'];
   for (const key of nums) if (typeof world[key] !== 'number' || !Number.isFinite(world[key])) throw new Error(`参数 ${key} 必须为有限数字`);
   if (!Number.isInteger(world.seed) || world.seed < 0 || world.seed > 1000000000) throw new Error('随机种子必须是 0–1,000,000,000 的整数');
   if (!Number.isInteger(world.size) || world.size < 200 || world.size > 800 || world.size % 20 !== 0) throw new Error('世界尺寸应为 200–800m 且为 20 的倍数');
@@ -478,6 +769,9 @@ function validateWorld(input) {
   if (typeof world.name !== 'string' || world.name.length > 120) throw new Error('世界名称无效');
   if(!Number.isInteger(world.roadSpacing)||world.roadSpacing<60||world.roadSpacing>160||world.roadSpacing%20!==0)throw Error('道路间距须在 60–160m，且为 20m 的倍数');
   if(world.roadWidth<6||world.roadWidth>22||world.roadWidth>=world.roadSpacing/3)throw Error('道路宽度须为 6–22m 且小于道路间距的三分之一');
+  if((world.diagonalWidth!==0 && (world.diagonalWidth<6||world.diagonalWidth>22)))throw Error('斜向道路宽度为 0（关闭）或 6–22m');
+  if(world.diagonalAngle<15||world.diagonalAngle>75)throw Error('斜向道路角度必须为 15–75 度');
+  if(Math.abs(world.diagonalOffset)>world.size/3)throw Error('斜路中心线偏移不得超过场地宽度的三分之一');
   if(world.parcelTargetWidth<25||world.parcelTargetWidth>90)throw Error('地块目标尺度须为 25–90m');
   if(world.parkShare<0||world.parkShare>0.65)throw Error('公园地块比例须为 0–65%');
   if(world.parkSmallMaxArea<200||world.parkSmallMaxArea>=world.parkLargeMinArea||world.parkLargeMinArea>18000)throw Error('公园面积分级无效');
@@ -526,6 +820,20 @@ function parseCommand(text) {
     let size=sizeMatch?Number(sizeMatch[1]):400;
     if(size<200 || size>800 || size%20!==0) return {type:'error',message:'世界尺寸须在 200–800m 之间，且为 20m 的倍数。'};
     return {type:'generate',size,description:`生成 ${size}×${size}m 程序化未来城市`};
+  }
+  if(has(s,['关闭斜路','移除斜路','删除斜向道路','禁用斜路','remove diagonal'])) return {type:'set',key:'diagonalWidth',value:0,description:'关闭斜向主路'};
+  if(has(s,['添加斜路','增加斜路','开启斜路','启用斜路','生成斜路','add diagonal'])) return {type:'set',key:'diagonalWidth',value:12,description:'启用斜向主路'};
+  if(has(s,['斜路角度','斜向道路角度','道路斜角','diagonal angle'])) {
+    const found=s.match(/(\d+(?:\.\d+)?)\s*(?:度|°|degrees)?/);if(!found)return {type:'error',message:'请指定斜向道路角度，如「斜路角度设为 35 度」。'};
+    const value=Number(found[1]);return {type:'set',key:'diagonalAngle',value,description:`斜路角度设置为 ${value} 度`};
+  }
+  if(has(s,['斜路偏移','斜向道路偏移','diagonal offset'])) {
+    const found=s.match(/(-?\d+(?:\.\d+)?)\s*(?:m|米)?/);if(!found)return {type:'error',message:'请输入斜路偏移米数。'};
+    const value=Number(found[1]);return {type:'set',key:'diagonalOffset',value,description:`斜路偏移设为 ${value}m`};
+  }
+  if(has(s,['斜路宽度','斜向道路宽度','diagonal width'])) {
+    const found=s.match(/(\d+(?:\.\d+)?)\s*(?:m|米)?/);if(!found)return {type:'error',message:'请输入斜路宽度（0 表示关闭）。'};
+    const value=Number(found[1]);return {type:'set',key:'diagonalWidth',value,description:`斜路宽度设为 ${value}m`};
   }
   const spatialParamRules=[
     {terms:['道路间距','路网间距','road spacing'],key:'roadSpacing',unit:'m'},
@@ -612,7 +920,7 @@ function makeExport(world,history=[]) {
 }
 
 function readExport(doc) {
-  if(!doc||doc.format!=='WorldCraft'||![1,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
+  if(!doc||doc.format!=='WorldCraft'||![1,2,SCHEMA_VERSION].includes(doc.version)) throw new Error('不是兼容的 WorldCraft 场景文件');
   return validateWorld(doc.world);
 }
 
@@ -624,7 +932,7 @@ const GRAPH_VERSION=2;
 const NODE_DEFS=Object.freeze({
   seed:{name:'World Input',cn:'世界输入',subtitle:'场地范围 / 确定性种子',required:true,params:['size','seed']},
   promenade:{name:'Promenade Rule',cn:'主街规则',subtitle:'设置主街路幅',params:['promenadeWidth']},
-  roads:{name:'Road Network',cn:'道路网络',subtitle:'道路走廊优先确定，无相互覆盖',required:true,params:['roadSpacing','roadWidth']},
+  roads:{name:'Road Network',cn:'道路网络',subtitle:'正交街网 / 可编辑斜向主路 · 道路拓扑',required:true,params:['roadSpacing','roadWidth','diagonalWidth','diagonalAngle','diagonalOffset']},
   parcels:{name:'Parcel Subdivision',cn:'地块划分',subtitle:'道路围合区块 → 有路权的地块',required:true,params:['parcelTargetWidth']},
   plaza:{name:'Civic Open Space',cn:'中心绿心',subtitle:'将中心地块预留为公园',params:['plazaRadius']},
   landuse:{name:'Land-use Allocation',cn:'功能分配',subtitle:'住宅 / 商业 / 公服 / 公园',required:true,params:['parkShare','parkSmallMaxArea','parkLargeMinArea']},
@@ -819,6 +1127,24 @@ function createCylinder(sides=24,cone=false){
   }
   return new Float32Array(result);
 }
+/** Variable convex footprint extruded into actual 3D triangles (rather than bounding rectangles). */
+function polygonPrism(points,cx,cz){
+  const output=[];
+  const push=(v,n)=>output.push(...v,...n);
+  const p=points.map(v=>[v[0]-cx,v[1]-cz]);
+  for(let i=1;i<p.length-1;i++){
+    push([p[0][0],.5,p[0][1]],[0,1,0]);
+    push([p[i+1][0],.5,p[i+1][1]],[0,1,0]);
+    push([p[i][0],.5,p[i][1]],[0,1,0]);
+  }
+  for(let i=0;i<p.length;i++){
+    const a=p[i],b=p[(i+1)%p.length],dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz)||1;
+    const n=[dz/len,0,-dx/len];
+    const loA=[a[0],-.5,a[1]],loB=[b[0],-.5,b[1]],hiA=[a[0],.5,a[1]],hiB=[b[0],.5,b[1]];
+    for(const v of [loA,hiA,hiB,loA,hiB,loB])push(v,n);
+  }
+  return new Float32Array(output);
+}
 function rgb(hex){const h=hex.replace('#','');return [parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),16)/255,parseInt(h.slice(4,6),16)/255];}
 function instance(x,y,z,w,h,d,color,rot=0){return [x,y,z,w,h,d,...(Array.isArray(color)?color:rgb(color)),rot];}
 function mix(a,b,f){return a.map((x,i)=>x*(1-f)+b[i]*f);}
@@ -864,13 +1190,20 @@ class WorldRenderer {
     this.createMesh(this.boxGeometry,[instance(0,0.06,0,s,.12,s,'#4e5f61')]);
     // V0.3: road polygons, park parcels, and land-use boundaries are real PCG outputs.
     // Ground surfaces are drawn in separate height layers (not overlapping plan footprints).
-    const parcelSurfaces=scene.parcels.map(p=>instance(p.x,.14,p.z,p.width,.10,p.depth,
-      p.use==='residential'?'#526568':p.use==='commercial'?'#627579':p.use==='civic'?'#66716e':'#47695d'));
-    this.createMesh(this.boxGeometry,parcelSurfaces);
-    this.createMesh(this.boxGeometry,scene.roads.map(r=>instance(r.x,.25,r.z,r.width,.14,r.depth,
-      r.kind==='promenade'?'#9baba0':'#26373e')));
     const parkColors={small:'#76a48d',medium:'#5e8d77',large:'#447d68'};
-    this.createMesh(this.boxGeometry,scene.parks.map(p=>instance(p.x,.35,p.z,p.width-.3,.18,p.depth-.3,parkColors[p.kind])));
+    if(scene.geometryMode==='convex-polygons-v1'){
+      const draw=(p,y,h,color,architect=false)=>this.createMesh(polygonPrism(p.vertices,p.x,p.z),[instance(p.x,y,p.z,1,h,1,color)],architect);
+      for(const p of scene.parcels)draw(p,.14,.10,p.use==='residential'?'#526568':p.use==='commercial'?'#627579':p.use==='civic'?'#66716e':'#47695d');
+      for(const road of scene.roads)draw(road,.25,.14,road.kind==='promenade'?'#9baba0':road.kind==='arterial'?'#9aa49b':'#26373e');
+      for(const park of scene.parks)draw(park,.35,.18,parkColors[park.kind]);
+    }else{
+      const parcelSurfaces=scene.parcels.map(p=>instance(p.x,.14,p.z,p.width,.10,p.depth,
+        p.use==='residential'?'#526568':p.use==='commercial'?'#627579':p.use==='civic'?'#66716e':'#47695d'));
+      this.createMesh(this.boxGeometry,parcelSurfaces);
+      this.createMesh(this.boxGeometry,scene.roads.map(r=>instance(r.x,.25,r.z,r.width,.14,r.depth,
+        r.kind==='promenade'?'#9baba0':'#26373e')));
+      this.createMesh(this.boxGeometry,scene.parks.map(p=>instance(p.x,.35,p.z,p.width-.3,.18,p.depth-.3,parkColors[p.kind])));
+    }
     // Readable but non-intrusive central route marking (within existing road polygons).
     const markings=scene.roadLines.filter(r=>r.kind==='promenade').map(r=>{
       const x=(r.from[0]+r.to[0])/2,z=(r.from[1]+r.to[1])/2;
@@ -888,10 +1221,18 @@ class WorldRenderer {
         accents.push(instance(b.x,b.height+4.0,b.z,b.width*.16,4.5,b.depth*.16,'#baccc3'));
       }
     }
-    this.createMesh(this.boxGeometry,bodies,true);
-    this.createMesh(this.boxGeometry,tops);
-    this.createMesh(this.boxGeometry,terraces,true);
-    this.createMesh(this.boxGeometry,accents);
+    if(scene.geometryMode==='convex-polygons-v1'){
+      for(const b of scene.buildings){
+        const base=b.use==='commercial'?'#9b9d92':b.use==='civic'?'#c0a78e':PALETTE[Math.floor(b.tone*PALETTE.length)];
+        const color=b.id===this.selected?'#e2bd7a':base;
+        this.createMesh(polygonPrism(b.vertices,b.x,b.z),[instance(b.x,b.height/2+.9,b.z,1,b.height,1,color)],true);
+      }
+    }else{
+      this.createMesh(this.boxGeometry,bodies,true);
+      this.createMesh(this.boxGeometry,tops);
+      this.createMesh(this.boxGeometry,terraces,true);
+      this.createMesh(this.boxGeometry,accents);
+    }
     const trunks=[],foliage=[];
     for(const t of scene.trees){
       trunks.push(instance(t.x,t.height*.3+.6,t.z,.66,t.height*.6,.66,'#56685c'));
@@ -985,6 +1326,12 @@ class CanvasFallbackRenderer {
   }
   line(points,color,width=1){const ctx=this.ctx;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();}
   drawBuilding(b,vp,eye){
+    if(b.vertices){
+      const p=(x,y,z)=>this.project([x,y,z],vp),bottom=b.vertices.map(v=>p(v[0],.7,v[1])),top=b.vertices.map(v=>p(v[0],b.height+.9,v[1]));
+      const color=b.id===this.selected?'#e6bb7b':b.use==='commercial'?'#9b9d92':b.use==='civic'?'#c0a78e':PALETTE[Math.floor(b.tone*PALETTE.length)];
+      for(let i=0;i<b.vertices.length;i++)this.polygon([bottom[i],bottom[(i+1)%bottom.length],top[(i+1)%top.length],top[i]],color,'#26383b70');
+      this.polygon(top,color,b.id===this.selected?'#f0c980':'#c9cfc520');return;
+    }
     const ctx=this.ctx;
     const x=b.x,z=b.z,w=b.width/2,d=b.depth/2,h=b.height+.9;
     const px=(X,Y,Z)=>this.project([X,Y,Z],vp);
@@ -1039,15 +1386,15 @@ class CanvasFallbackRenderer {
     for(const parcel of this.scene.parcels){
       const b=parcel.bounds;
       const color=parcel.use==='residential'?'#4e6466':parcel.use==='commercial'?'#72847e':parcel.use==='civic'?'#7e8074':'#4d6d60';
-      this.polygon([p(b.x0,.14,b.z0),p(b.x1,.14,b.z0),p(b.x1,.14,b.z1),p(b.x0,.14,b.z1)],color,'#9ab2a02b');
+      this.polygon(parcel.vertices?parcel.vertices.map(v=>p(v[0],.14,v[1])):[p(b.x0,.14,b.z0),p(b.x1,.14,b.z0),p(b.x1,.14,b.z1),p(b.x0,.14,b.z1)],color,'#9ab2a02b');
     }
     for(const road of this.scene.roads){
       const b=road.bounds;
-      this.polygon([p(b.x0,.27,b.z0),p(b.x1,.27,b.z0),p(b.x1,.27,b.z1),p(b.x0,.27,b.z1)],road.kind==='promenade'?'#a1afa4':'#273942');
+      this.polygon(road.vertices?road.vertices.map(v=>p(v[0],.27,v[1])):[p(b.x0,.27,b.z0),p(b.x1,.27,b.z0),p(b.x1,.27,b.z1),p(b.x0,.27,b.z1)],road.kind==='promenade'?'#a1afa4':road.kind==='arterial'?'#a5b1aa':'#273942');
     }
     for(const park of this.scene.parks){
       const b=park.bounds,colors={small:'#75a48a',medium:'#55876f',large:'#3e775f'};
-      this.polygon([p(b.x0,.38,b.z0),p(b.x1,.38,b.z0),p(b.x1,.38,b.z1),p(b.x0,.38,b.z1)],colors[park.kind]);
+      this.polygon(park.vertices?park.vertices.map(v=>p(v[0],.38,v[1])):[p(b.x0,.38,b.z0),p(b.x1,.38,b.z0),p(b.x1,.38,b.z1),p(b.x0,.38,b.z1)],colors[park.kind]);
     }
     // Draw individual solids back to front, preserving depth cues in 2D fallback.
     const items=[...this.scene.buildings.map(q=>({kind:'building',value:q,x:q.x,z:q.z})),...this.scene.trees.map(q=>({kind:'tree',value:q,x:q.x,z:q.z}))];
@@ -1076,12 +1423,12 @@ const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>'
 const pct=n=>`${Math.round(n*100)}%`;
 const fmt=(n,d=0)=>Number(n).toLocaleString('zh-CN',{maximumFractionDigits:d,minimumFractionDigits:d});
 const shortTime=()=>new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
-const storeKey='worldcraft-v0.3-session';
+const storeKey='worldcraft-v0.4-session';
 const demoPrompts=[
   '生成一座 400×400m 的未来城市，中心高外围低，保留中央开放空间',
   '将东侧建筑密度降低 30%，其他区域不变',
   '整体建筑高度提高 20%',
-  '道路间距设为 80m'
+  '斜路角度设为 50 度'
 ];
 const pipelineNames=Object.entries(NODE_DEFS).map(([key,n])=>({key,name:n.cn}));
 let persisted;
@@ -1124,6 +1471,7 @@ function refreshAll(rebuild=true){
   $('world-caption').textContent=`${state.world.size} × ${state.world.size} M / FUTURE CITY`;
   $('seed-footnote').textContent=`SEED #${state.world.seed}`;
   $('mesh-count').textContent=fmt(state.scene.metrics.total);
+  $('world-caption').textContent+=state.scene.geometryMode?' / POLYGON PCG':'';
   renderMetrics();renderTree();renderRules();renderSelection();renderComparison();renderHistory();renderButtons();renderGraph();renderGraphInspector();renderPipeline();persist();
 }
 function commit(description,world,{resetBaseline=false,graph=state.graph}={}){
@@ -1190,7 +1538,7 @@ function renderTree(){
     <button class="tree-item indent" data-action="focus-region" data-region="east"><span class="node-icon">▥</span>East District <span class="node-count">${m.east}</span></button>
     <button class="tree-item indent" data-action="focus-region" data-region="west"><span class="node-icon">▥</span>West District <span class="node-count">${m.west}</span></button>
     <div class="tree-heading">SPATIAL LAYERS</div>
-    <div class="tree-item indent"><span class="node-icon">═</span>道路网络 <span class="node-count">${m.roadSegments} 段</span></div>
+    <div class="tree-item indent"><span class="node-icon">═</span>道路网络 <span class="node-count">${m.roadSegments} 段${state.scene.roadGraph?' / '+state.scene.roadGraph.nodes.length+' 交点':''}</span></div>
     <div class="tree-item indent"><span class="node-icon">▦</span>地块划分 <span class="node-count">${m.parcelCount} 块</span></div>
     <div class="tree-item indent"><span class="node-icon">▤</span>多尺度公园 <span class="node-count">${m.parkCount} 块</span></div>
     <div class="tree-item indent"><span class="node-icon">♣</span>沿街 / 园内树木 <span class="node-count">${m.treeCount} 棵</span></div>
@@ -1211,22 +1559,25 @@ function renderPipeline(){
   $('pipeline').innerHTML=pipelineNames.map((n,i)=>`<div class="pipeline-step" style="opacity:${active.has(n.key)?1:.35}"><span class="num">${String(i+1).padStart(2,'0')}</span><span>${n.name}</span><span class="line"></span></div>`).join('');
 }
 function ruleControl(name,label,value,step,min,max,unit,track=1,description=''){
-  const suffix=unit==='%'?pct(value):unit==='m'?`${fmt(value)}m`:unit==='×'?`${fmt(value,2)}×`:fmt(value);
-  const bar=Math.max(0,Math.min(100,value/track*100));
+  const suffix=unit==='%'?pct(value):unit==='m'?`${fmt(value)}m`:unit==='°'?`${fmt(value)}°`:unit==='×'?`${fmt(value,2)}×`:fmt(value);
+  const bar=Math.max(0,Math.min(100,(value+(name==='diagonalOffset'?80:0))/(name==='diagonalOffset'?160:track)*100));
   return `<div class="setting"><div><div class="setting-label">${label}</div>${description?`<span class="detail">${description}</span>`:''}</div><div class="setting-control"><button class="increment" type="button" data-rule="${name}" data-diff="-${step}" aria-label="降低${label}">−</button><span class="setting-value">${suffix}</span><button class="increment" type="button" data-rule="${name}" data-diff="${step}" aria-label="提高${label}">+</button></div></div><div class="rule-track"><span style="width:${bar}%"></span></div>`;
 }
 const quickSpecs={
   eastDensity:{min:0,max:1,step:.05,label:'东侧建筑密度',unit:'%'},westDensity:{min:0,max:1,step:.05,label:'西侧建筑密度',unit:'%'},
   heightScale:{min:.2,max:3,step:.1,label:'高度倍率',unit:'×'},plazaRadius:{min:20,max:160,step:10,label:'中心绿心半径',unit:'m'},
   roadSpacing:{min:60,max:160,step:20,label:'道路中心距',unit:'m'},roadWidth:{min:6,max:22,step:2,label:'道路宽度',unit:'m'},
+  diagonalWidth:{min:0,max:22,step:2,label:'斜向道路宽度',unit:'m'},diagonalAngle:{min:15,max:75,step:5,label:'斜向道路角度',unit:'°'},diagonalOffset:{min:-80,max:80,step:10,label:'斜向道路偏移',unit:'m'},
   parcelTargetWidth:{min:25,max:90,step:5,label:'地块目标宽度',unit:'m'},parkShare:{min:0,max:.65,step:.05,label:'公园地块比例',unit:'%'},
   treeSpacing:{min:8,max:35,step:1,label:'行道树间距',unit:'m'},treeDensity:{min:0,max:1,step:.1,label:'树木生成概率',unit:'%'}
 };
 function bindRules(){
   document.querySelectorAll('[data-rule]').forEach(button=>button.addEventListener('click',()=>{
     const key=button.dataset.rule,spec=quickSpecs[key];if(!spec)return;
-    const value=Math.round(Math.max(spec.min,Math.min(spec.max,state.world[key]+Number(button.dataset.diff)))*1000)/1000;
-    const suffix=spec.unit==='%'?pct(value):spec.unit==='×'?fmt(value,2)+'×':value+'m';
+    let value=Math.round(Math.max(spec.min,Math.min(spec.max,state.world[key]+Number(button.dataset.diff)))*1000)/1000;
+    if(key==='diagonalWidth' && value>0 && value<6)value=Number(button.dataset.diff)>0?6:0;
+    if(key==='diagonalOffset')value=Math.max(-state.world.size/3,Math.min(state.world.size/3,value));
+    const suffix=spec.unit==='%'?pct(value):spec.unit==='×'?fmt(value,2)+'×':spec.unit==='°'?value+'°':value+'m';
     setParameter(key,value,`${spec.label}调整为 ${suffix}`);
   }));
 }
@@ -1236,6 +1587,9 @@ function renderRules(){
     <div class="setting inline"><span class="setting-label">随机种子</span><div class="setting-control"><span class="setting-value">#${w.seed}</span><button class="increment" id="reroll-seed" title="重新抽取布局随机种子">↻</button></div></div>
     ${ruleControl('roadSpacing','路网中心距',w.roadSpacing,20,60,160,'m',160)}
     ${ruleControl('roadWidth','道路宽度',w.roadWidth,2,6,22,'m',22)}
+    ${ruleControl('diagonalWidth','斜路宽度 (0 为关闭)',w.diagonalWidth,2,0,22,'m',22)}
+    ${ruleControl('diagonalAngle','斜路角度',w.diagonalAngle,5,15,75,'°',75)}
+    ${ruleControl('diagonalOffset','斜路偏移',w.diagonalOffset,10,-80,80,'m',80)}
     ${ruleControl('parcelTargetWidth','地块目标宽度',w.parcelTargetWidth,5,25,90,'m',90)}
     ${ruleControl('parkShare','公园地块比例',w.parkShare,.05,0,.65,'%',.65)}
     ${ruleControl('treeSpacing','行道树间距',w.treeSpacing,1,8,35,'m',35)}
@@ -1321,6 +1675,9 @@ function wireEvents(){
 const graphParams={
   roadSpacing:{name:'道路中心距',min:60,max:160,step:20,unit:'m'},
   roadWidth:{name:'道路宽度',min:6,max:22,step:1,unit:'m'},
+  diagonalWidth:{name:'斜路宽度',min:0,max:22,step:2,unit:'m'},
+  diagonalAngle:{name:'斜路角度',min:15,max:75,step:5,unit:'°'},
+  diagonalOffset:{name:'斜路偏移',min:-80,max:80,step:10,unit:'m'},
   parcelTargetWidth:{name:'地块目标宽度',min:25,max:90,step:5,unit:'m'},
   parkShare:{name:'公园地块比例',min:0,max:.65,step:.05,unit:'%'},
   parkSmallMaxArea:{name:'小公园面积上限㎡',min:200,max:3000,step:100,unit:'㎡'},

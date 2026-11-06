@@ -7,12 +7,12 @@ const escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>'
 const pct=n=>`${Math.round(n*100)}%`;
 const fmt=(n,d=0)=>Number(n).toLocaleString('zh-CN',{maximumFractionDigits:d,minimumFractionDigits:d});
 const shortTime=()=>new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});
-const storeKey='worldcraft-v0.3-session';
+const storeKey='worldcraft-v0.4-session';
 const demoPrompts=[
   '生成一座 400×400m 的未来城市，中心高外围低，保留中央开放空间',
   '将东侧建筑密度降低 30%，其他区域不变',
   '整体建筑高度提高 20%',
-  '道路间距设为 80m'
+  '斜路角度设为 50 度'
 ];
 const pipelineNames=Object.entries(NODE_DEFS).map(([key,n])=>({key,name:n.cn}));
 let persisted;
@@ -55,6 +55,7 @@ function refreshAll(rebuild=true){
   $('world-caption').textContent=`${state.world.size} × ${state.world.size} M / FUTURE CITY`;
   $('seed-footnote').textContent=`SEED #${state.world.seed}`;
   $('mesh-count').textContent=fmt(state.scene.metrics.total);
+  $('world-caption').textContent+=state.scene.geometryMode?' / POLYGON PCG':'';
   renderMetrics();renderTree();renderRules();renderSelection();renderComparison();renderHistory();renderButtons();renderGraph();renderGraphInspector();renderPipeline();persist();
 }
 function commit(description,world,{resetBaseline=false,graph=state.graph}={}){
@@ -121,7 +122,7 @@ function renderTree(){
     <button class="tree-item indent" data-action="focus-region" data-region="east"><span class="node-icon">▥</span>East District <span class="node-count">${m.east}</span></button>
     <button class="tree-item indent" data-action="focus-region" data-region="west"><span class="node-icon">▥</span>West District <span class="node-count">${m.west}</span></button>
     <div class="tree-heading">SPATIAL LAYERS</div>
-    <div class="tree-item indent"><span class="node-icon">═</span>道路网络 <span class="node-count">${m.roadSegments} 段</span></div>
+    <div class="tree-item indent"><span class="node-icon">═</span>道路网络 <span class="node-count">${m.roadSegments} 段${state.scene.roadGraph?' / '+state.scene.roadGraph.nodes.length+' 交点':''}</span></div>
     <div class="tree-item indent"><span class="node-icon">▦</span>地块划分 <span class="node-count">${m.parcelCount} 块</span></div>
     <div class="tree-item indent"><span class="node-icon">▤</span>多尺度公园 <span class="node-count">${m.parkCount} 块</span></div>
     <div class="tree-item indent"><span class="node-icon">♣</span>沿街 / 园内树木 <span class="node-count">${m.treeCount} 棵</span></div>
@@ -142,22 +143,25 @@ function renderPipeline(){
   $('pipeline').innerHTML=pipelineNames.map((n,i)=>`<div class="pipeline-step" style="opacity:${active.has(n.key)?1:.35}"><span class="num">${String(i+1).padStart(2,'0')}</span><span>${n.name}</span><span class="line"></span></div>`).join('');
 }
 function ruleControl(name,label,value,step,min,max,unit,track=1,description=''){
-  const suffix=unit==='%'?pct(value):unit==='m'?`${fmt(value)}m`:unit==='×'?`${fmt(value,2)}×`:fmt(value);
-  const bar=Math.max(0,Math.min(100,value/track*100));
+  const suffix=unit==='%'?pct(value):unit==='m'?`${fmt(value)}m`:unit==='°'?`${fmt(value)}°`:unit==='×'?`${fmt(value,2)}×`:fmt(value);
+  const bar=Math.max(0,Math.min(100,(value+(name==='diagonalOffset'?80:0))/(name==='diagonalOffset'?160:track)*100));
   return `<div class="setting"><div><div class="setting-label">${label}</div>${description?`<span class="detail">${description}</span>`:''}</div><div class="setting-control"><button class="increment" type="button" data-rule="${name}" data-diff="-${step}" aria-label="降低${label}">−</button><span class="setting-value">${suffix}</span><button class="increment" type="button" data-rule="${name}" data-diff="${step}" aria-label="提高${label}">+</button></div></div><div class="rule-track"><span style="width:${bar}%"></span></div>`;
 }
 const quickSpecs={
   eastDensity:{min:0,max:1,step:.05,label:'东侧建筑密度',unit:'%'},westDensity:{min:0,max:1,step:.05,label:'西侧建筑密度',unit:'%'},
   heightScale:{min:.2,max:3,step:.1,label:'高度倍率',unit:'×'},plazaRadius:{min:20,max:160,step:10,label:'中心绿心半径',unit:'m'},
   roadSpacing:{min:60,max:160,step:20,label:'道路中心距',unit:'m'},roadWidth:{min:6,max:22,step:2,label:'道路宽度',unit:'m'},
+  diagonalWidth:{min:0,max:22,step:2,label:'斜向道路宽度',unit:'m'},diagonalAngle:{min:15,max:75,step:5,label:'斜向道路角度',unit:'°'},diagonalOffset:{min:-80,max:80,step:10,label:'斜向道路偏移',unit:'m'},
   parcelTargetWidth:{min:25,max:90,step:5,label:'地块目标宽度',unit:'m'},parkShare:{min:0,max:.65,step:.05,label:'公园地块比例',unit:'%'},
   treeSpacing:{min:8,max:35,step:1,label:'行道树间距',unit:'m'},treeDensity:{min:0,max:1,step:.1,label:'树木生成概率',unit:'%'}
 };
 function bindRules(){
   document.querySelectorAll('[data-rule]').forEach(button=>button.addEventListener('click',()=>{
     const key=button.dataset.rule,spec=quickSpecs[key];if(!spec)return;
-    const value=Math.round(Math.max(spec.min,Math.min(spec.max,state.world[key]+Number(button.dataset.diff)))*1000)/1000;
-    const suffix=spec.unit==='%'?pct(value):spec.unit==='×'?fmt(value,2)+'×':value+'m';
+    let value=Math.round(Math.max(spec.min,Math.min(spec.max,state.world[key]+Number(button.dataset.diff)))*1000)/1000;
+    if(key==='diagonalWidth' && value>0 && value<6)value=Number(button.dataset.diff)>0?6:0;
+    if(key==='diagonalOffset')value=Math.max(-state.world.size/3,Math.min(state.world.size/3,value));
+    const suffix=spec.unit==='%'?pct(value):spec.unit==='×'?fmt(value,2)+'×':spec.unit==='°'?value+'°':value+'m';
     setParameter(key,value,`${spec.label}调整为 ${suffix}`);
   }));
 }
@@ -167,6 +171,9 @@ function renderRules(){
     <div class="setting inline"><span class="setting-label">随机种子</span><div class="setting-control"><span class="setting-value">#${w.seed}</span><button class="increment" id="reroll-seed" title="重新抽取布局随机种子">↻</button></div></div>
     ${ruleControl('roadSpacing','路网中心距',w.roadSpacing,20,60,160,'m',160)}
     ${ruleControl('roadWidth','道路宽度',w.roadWidth,2,6,22,'m',22)}
+    ${ruleControl('diagonalWidth','斜路宽度 (0 为关闭)',w.diagonalWidth,2,0,22,'m',22)}
+    ${ruleControl('diagonalAngle','斜路角度',w.diagonalAngle,5,15,75,'°',75)}
+    ${ruleControl('diagonalOffset','斜路偏移',w.diagonalOffset,10,-80,80,'m',80)}
     ${ruleControl('parcelTargetWidth','地块目标宽度',w.parcelTargetWidth,5,25,90,'m',90)}
     ${ruleControl('parkShare','公园地块比例',w.parkShare,.05,0,.65,'%',.65)}
     ${ruleControl('treeSpacing','行道树间距',w.treeSpacing,1,8,35,'m',35)}
@@ -252,6 +259,9 @@ function wireEvents(){
 const graphParams={
   roadSpacing:{name:'道路中心距',min:60,max:160,step:20,unit:'m'},
   roadWidth:{name:'道路宽度',min:6,max:22,step:1,unit:'m'},
+  diagonalWidth:{name:'斜路宽度',min:0,max:22,step:2,unit:'m'},
+  diagonalAngle:{name:'斜路角度',min:15,max:75,step:5,unit:'°'},
+  diagonalOffset:{name:'斜路偏移',min:-80,max:80,step:10,unit:'m'},
   parcelTargetWidth:{name:'地块目标宽度',min:25,max:90,step:5,unit:'m'},
   parkShare:{name:'公园地块比例',min:0,max:.65,step:.05,unit:'%'},
   parkSmallMaxArea:{name:'小公园面积上限㎡',min:200,max:3000,step:100,unit:'㎡'},
