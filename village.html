@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#20392f"><title>WorldCraft · 山地村落实验室</title><link rel="stylesheet" href="./village.css"></head>
+<body>
+<header class="masthead"><a class="brand" href="./worldcraft.html"><span class="brand-icon">◈</span><span>WorldCraft<small>PROCEDURAL LANDSCAPES</small></span></a><div class="crumb">研究实验室 <span>/</span> 山地村落 <b>01</b></div><a class="back" href="./worldcraft.html">返回城市工作台 ↗</a><button id="export" class="export">↓ 导出场景</button></header>
+<main>
+<section class="intro"><div><div class="eyebrow">SETTLEMENT STUDY / 001</div><h1>让村落，顺着山势生长。</h1><p>地形决定适宜性，道路改变可达性，新的住户再推动道路延伸。</p></div><div class="experiment-tag"><i></i> 离线算法实验<span>400 × 400 m · 同地形对照</span></div></section>
+<div class="workspace">
+<aside class="controls">
+<div class="section-number">01 <span>场地与规则</span></div>
+<form id="config-form"><label for="seed">随机种子 <span>SEED</span></label><div class="seed-row"><input id="seed" type="number" min="0" max="1000000000" step="1" value="42" required><button type="button" id="shuffle" title="更换随机种子">↻</button></div>
+<label for="count">目标住宅 <output id="count-value">50 栋</output></label><input id="count" type="range" min="10" max="70" step="5" value="50">
+<label for="slope">建筑坡度上限 <output id="slope-value">22°</output></label><input id="slope" type="range" min="10" max="30" value="22">
+<p class="field-note">道路纵坡限制 32%。水域不可建设，住宅间距至少 22 m。</p><button id="generate" class="generate" type="submit">生成山地村落 <span>↗</span></button></form>
+<div class="section-number">02 <span>观察图层</span></div>
+<div class="layer-buttons" role="group" aria-label="观察图层"><button data-layer="terrain" class="active" aria-pressed="true">自然地形</button><button data-layer="slope" aria-pressed="false">坡度</button><button data-layer="suitability" aria-pressed="false">选址适宜性</button></div>
+<div class="legend" id="legend"><span>低海拔</span><i></i><span>高海拔</span></div><p class="field-note">适宜性图仅显示坡度与水域条件；逐步选址另计道路、中心与邻居偏好。</p>
+<label class="toggle"><input type="checkbox" id="top-view">平面俯视</label><label class="toggle"><input type="checkbox" id="show-parcels" checked>宅地与入户步道</label><label class="toggle"><input type="checkbox" id="compare" checked>显示对照</label>
+<label for="baseline-mode">对照模型</label><select id="baseline-mode"><option value="slope">坡度随机布局</option><option value="grid">规则网格基线</option></select><p class="field-note" id="baseline-explanation">共用坡度、水域、间距与寻路约束；随机选址不计中心和邻里兴趣。</p>
+<div class="section-number">03 <span>生成依据</span></div>
+<ol class="method"><li><b>评估场地</b><span>坡度、水域与可建设边界</span></li><li><b>选择住址</b><span>地形、道路、中心和邻居偏好</span></li><li><b>接入山路</b><span>A* 寻路，权衡长度与纵坡</span></li><li><b>更新可达性</b><span>继续生长，保持接路与避让</span></li></ol>
+<a class="research-link" href="./docs/PROCEDURAL_SETTLEMENT_RESEARCH.md">研究资料与算法来源 ↗</a>
+</aside>
+<section class="study">
+<div class="view-toolbar"><span><i></i><strong id="status">正在分析山地…</strong></span><div><button id="reset-view" title="重置视角">⌖ 适配视图</button><button id="zoom-out" aria-label="缩小">−</button><button id="zoom-in" aria-label="放大">＋</button></div></div>
+<div class="views" id="views"><article class="view-card"><div class="view-title"><span class="badge">A</span><div><h2>顺应地形的聚落</h2><p>兴趣评分 + 道路反馈</p></div><span class="view-state">ADAPTIVE</span></div><canvas id="adaptive" aria-label="可拖动旋转缩放的山地村落三维视图"></canvas><div class="map-label"><span>入口 <i class="entrance-key"></i></span><span>生长中心 <i class="center-key"></i></span><span>住宅 <i class="house-key"></i></span></div></article>
+<article class="view-card baseline-card"><div class="view-title"><span class="badge baseline">B</span><div><h2 id="baseline-title">坡度随机布局</h2><p id="baseline-subtitle">相同硬约束与寻路 · 移除兴趣评分</p></div><span class="view-state">CONTROL</span></div><canvas id="baseline" aria-label="可选择的布局对照三维视图"></canvas><div class="baseline-note" id="baseline-note">坡度随机对照 · 同地形、预算与建筑规则</div></article></div>
+<div class="canvas-help">拖动旋转 · 滚轮缩放 · 点击左侧住宅查看宅地 <span>单位：米 / 纵坡：%</span></div>
+<section class="household-inspector" aria-label="逐户查看"><div class="household-heading"><div><span class="eyebrow">HOUSEHOLD / LAND & ACCESS</span><h3>一户住宅，一块宅地，一条回家的路</h3></div><select id="household-select" aria-label="选择住宅"></select><button id="focus-household">定位住宅</button></div><div id="household-detail" aria-live="polite"></div></section>
+<section class="playback"><div class="playback-heading"><div><span class="eyebrow">GROWTH TIMELINE</span><h3>观察每一次落脚与接路</h3></div><strong id="step-label">50 / 50</strong></div><div class="timeline"><button id="play" aria-label="播放生长过程">▶ 播放</button><button id="restart" title="从头回放">↶</button><input id="timeline" aria-label="生长阶段" type="range" min="0" max="50" value="50"><span id="phase">完整村落</span></div><p id="event-text" aria-live="polite">选择时间轴，查看建筑选址与道路延伸。</p></section>
+<section class="results"><div class="results-heading"><h3>从形态到可量化的比较</h3><span id="comparison-scope">同一阶段 · 同一地形</span></div><div id="metrics" class="metrics"></div><p class="metric-note">建筑坡度取中心与四角的最大值。道路按 5 m 网格离散采样；红色表示超过当前约束。道路长度与聚集程度作为描述指标。</p></section>
+<div id="error" class="error" role="alert" hidden></div>
+</section></div>
+<footer><span>WorldCraft / Mountain Village Lab</span><p>借鉴地形兴趣图与聚落生长研究的简化原型；用于视觉布局探索，尚未包含真实道路工程、建筑结构或日照验证。</p><a href="./docs/MOUNTAIN_VILLAGE.md">算法说明 ↗</a></footer>
+</main><script type="module" src="./src/village-app.js"></script></body></html>

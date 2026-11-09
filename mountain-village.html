@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#20392f"><title>WorldCraft · 山地村落实验室</title><style>
+@charset "UTF-8";
+:root{color-scheme:light;--ink:#243b31;--muted:#768278;--paper:#f4f3ed;--line:#dadfd4;--accent:#456b4c;--ochre:#bd8656;font-family:"Segoe UI","Microsoft YaHei",sans-serif;font-size:14px}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink)}button,input{font:inherit}button,a,input{touch-action:manipulation}button{cursor:pointer}a{color:inherit;text-decoration:none}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #b58653;outline-offset:3px}.masthead{height:82px;background:#20392f;color:#eeeede;display:flex;align-items:center;gap:26px;padding:0 40px}.brand{display:flex;gap:12px;align-items:center;font-size:21px;font-weight:650}.brand-icon{font-size:35px;line-height:1}.brand small{display:block;letter-spacing:2px;font-size:8px;margin-top:3px;font-weight:400;color:#bdc7b5}.crumb{border-left:1px solid #496052;padding-left:25px;font-size:13px;color:#c2cbbd}.crumb span{padding:0 10px;color:#879988}.crumb b{font-size:10px;border:1px solid #657561;padding:3px 6px;margin-left:12px;font-weight:400}.back{margin-left:auto;font-size:12px;color:#c5ccbe}.export{border:1px solid #81917a;background:#e2e6d6;border-radius:5px;color:#243b31;padding:10px 15px;font-size:12px}main{max-width:1800px;margin:auto;padding:36px 40px 0}.intro{display:flex;align-items:center;justify-content:space-between;margin-bottom:30px}.eyebrow{font-size:10px;letter-spacing:2px;color:var(--muted)}h1{font-size:30px;font-weight:550;letter-spacing:1px;margin:10px 0}p{line-height:1.75}.intro p{font-size:13px;color:#6b786b;margin:8px 0 0}.experiment-tag{font-size:12px;line-height:1.8}.experiment-tag>i,.view-toolbar>span>i{display:inline-block;width:6px;height:6px;background:#6b8960;border-radius:50%;margin-right:7px}.experiment-tag span{display:block;color:var(--muted);font-size:11px;padding-left:13px}.workspace{display:grid;grid-template-columns:225px minmax(0,1fr);gap:28px}.controls{border-top:1px solid #b6c2ae;padding:19px 2px 0}.section-number{font-size:11px;letter-spacing:1px;color:#8b9a85;margin-bottom:22px}.section-number span{color:var(--ink);font-size:13px;letter-spacing:0;margin-left:12px}label{display:flex;justify-content:space-between;margin:18px 0 10px;font-size:12px}label>span,output{font-size:10px;color:var(--muted)}output{font-size:12px;color:var(--ink)}input[type=number]{width:100%;border:1px solid var(--line);background:#fafbf5;padding:10px;color:var(--ink);border-radius:4px}.seed-row{display:flex;gap:8px}.seed-row button{border:1px solid var(--line);background:transparent;width:40px;border-radius:4px;font-size:20px;color:var(--accent)}input[type=range]{accent-color:#57794d;width:100%;height:5px;margin:9px 0 14px;cursor:pointer}.field-note{color:var(--muted);font-size:11px;margin:9px 0 19px}.generate{width:100%;display:flex;justify-content:space-between;padding:12px 15px;color:#f5f4e8;background:#385a3e;border:0;border-radius:4px;margin-bottom:31px}.generate:disabled{opacity:.6;cursor:wait}.layer-buttons{display:flex;flex-wrap:wrap;gap:7px}.layer-buttons button{font-size:11px;background:transparent;color:#6d7e69;border:1px solid var(--line);padding:8px 10px;border-radius:4px}.layer-buttons button.active{background:#dfe6d5;color:#36523b;border-color:#adbba2}.legend{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted);margin:15px 0}.legend i{height:6px;flex:1;background:linear-gradient(90deg,#a9c697,#b9ba8e,#9d8f77);border-radius:2px}.toggle{justify-content:flex-start;align-items:center;gap:9px;font-size:12px;margin:14px 0}.toggle input{accent-color:var(--accent)}.controls .section-number:not(:first-child){border-top:1px solid var(--line);padding-top:21px;margin-top:28px}.method{padding:0;list-style:none;counter-reset:steps}.method li{position:relative;padding:0 0 19px 22px;border-left:1px solid #ccd6c3;margin-left:4px}.method li:before{content:"";width:7px;height:7px;border:2px solid #759068;background:var(--paper);border-radius:50%;position:absolute;left:-6px;top:3px}.method li:last-child{border:0}.method b{font-weight:500;font-size:12px;display:block}.method span{display:block;color:var(--muted);font-size:10px;line-height:1.7;margin-top:3px}.research-link{font-size:11px;border-bottom:1px solid #a7b39b;padding-bottom:5px}.study{min-width:0}.view-toolbar{display:flex;justify-content:space-between;align-items:center;height:38px;margin-bottom:10px;font-size:11px}.view-toolbar strong{font-weight:500}.view-toolbar button{border:1px solid var(--line);background:transparent;border-radius:4px;padding:7px 10px;color:var(--ink);font-size:11px}.views{display:grid;grid-template-columns:1fr 1fr;gap:14px}.views.single{grid-template-columns:1fr}.views.single .baseline-card{display:none}.view-card{border:1px solid #cfd7c7;background:#e6eadf;border-radius:7px;overflow:hidden;position:relative}.view-title{display:flex;align-items:center;gap:9px;padding:17px 17px 0}.badge{font-size:11px;border:1px solid #a6b89b;padding:5px 7px;border-radius:3px}.badge.baseline{color:#8e826f;border-color:#c5bdad}.view-title h2{font-size:14px;font-weight:550;margin:0}.view-title p{font-size:10px;margin:4px 0 0;color:var(--muted)}.view-state{font-size:8px;letter-spacing:1.5px;margin-left:auto;color:#7f8f76}.view-card canvas{width:100%;height:370px;display:block;cursor:grab;touch-action:none}.view-card canvas:active{cursor:grabbing}.map-label{position:absolute;bottom:12px;left:17px;display:flex;gap:13px;font-size:9px;color:#72816d}.map-label i{display:inline-block;margin-left:4px;width:7px;height:7px}.entrance-key{background:#376a79}.center-key{background:#b27d3d;border-radius:50%}.house-key{background:#996c50}.baseline-note{position:absolute;bottom:12px;left:17px;font-size:9px;color:#8b8376}.canvas-help{display:flex;justify-content:space-between;font-size:10px;color:#8b9483;margin:10px 0 23px}.playback{background:#fbfbf6;border:1px solid var(--line);padding:20px 23px;border-radius:6px}.playback-heading{display:flex;justify-content:space-between;align-items:center}h3{font-size:14px;font-weight:550;margin:7px 0}.playback-heading>strong{font-size:19px;font-weight:400;font-variant-numeric:tabular-nums}.timeline{display:flex;align-items:center;gap:10px;margin:16px 0 9px}.timeline button{border:1px solid var(--line);padding:7px 11px;border-radius:3px;background:#eef2e6;color:var(--ink);white-space:nowrap;font-size:11px}.timeline input{margin:0 7px;flex:1}.timeline>span{font-size:10px;color:var(--muted);min-width:55px;text-align:right}.playback>p{font-size:11px;color:#7e8b76;margin:10px 0 0;min-height:20px}.results{margin-top:25px}.results-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.results-heading>span{color:var(--muted);font-size:10px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:5px;background:#fafaf4}.metric{padding:17px 15px;border-right:1px solid var(--line)}.metric:last-child{border:0}.metric-title{font-size:11px;color:var(--muted);margin-bottom:13px}.metric-row{display:flex;align-items:baseline;gap:6px;margin-top:5px}.metric-row small{font-size:9px;color:var(--muted);width:14px}.metric-row strong{font-size:21px;font-weight:450;font-variant-numeric:tabular-nums}.metric-row span{font-size:10px;color:var(--muted)}.metric-row.base strong{font-size:15px;color:#8d897a}.metric-row .bad{color:#b45f44!important}.metric-note{font-size:10px;color:var(--muted)}.error{background:#fff1e8;border:1px solid #dfb299;padding:12px;margin-top:15px;color:#a84d31}footer{display:flex;align-items:center;gap:24px;border-top:1px solid var(--line);margin-top:35px;padding:20px 0 25px;color:var(--muted);font-size:10px}footer>span{white-space:nowrap}footer p{flex:1;margin:0}footer a{white-space:nowrap}button:hover{filter:brightness(.96)}
+select{font:inherit;border:1px solid var(--line);background:#fafbf5;color:var(--ink);padding:8px;border-radius:4px;max-width:100%}.controls>select{width:100%;font-size:12px}.household-inspector{border:1px solid #cdd5c3;background:#ecefe3;border-radius:6px;padding:18px 20px;margin:16px 0}.household-heading{display:flex;gap:12px;align-items:center}.household-heading>div{flex:1}.household-heading h3{font-size:13px}.household-heading select{font-size:11px}.household-heading button{padding:8px 10px;background:#dde4d1;border:1px solid #bccbb0;border-radius:4px;color:var(--ink);font-size:11px}#household-detail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin-top:17px}#household-detail small{font-size:10px;color:var(--muted);display:block}#household-detail strong{font-size:18px;font-weight:500;display:block;line-height:1.8}#household-detail em{font-size:10px;font-style:normal;font-weight:400}#household-detail span{font-size:10px;color:#77816f;display:block;line-height:1.6}
+@media(min-width:1500px){.view-card canvas{height:440px}}@media(max-width:1100px){main{padding:25px 22px 0}.masthead{padding:0 22px;gap:15px}.workspace{grid-template-columns:190px minmax(0,1fr);gap:18px}.view-state{display:none}.view-title{padding:12px 10px 0}.view-title h2{font-size:12px}.view-card canvas{height:320px}.metrics{grid-template-columns:1fr 1fr}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--line)}.crumb{font-size:11px}.intro h1{font-size:26px}#household-detail{grid-template-columns:1fr 1fr}.household-heading{flex-wrap:wrap}}@media(max-width:760px){.masthead{height:68px;padding:0 15px}.brand{font-size:17px}.brand small{font-size:6px}.brand-icon{font-size:27px}.crumb,.back{display:none}.export{margin-left:auto;font-size:11px;padding:8px 10px}main{padding:25px 16px 0}.intro{display:block;margin-bottom:22px}.intro h1{font-size:25px}.intro p{font-size:11px}.experiment-tag{margin-top:15px;display:flex;gap:8px;align-items:center;font-size:10px}.experiment-tag span{padding:0;font-size:9px}.experiment-tag>i{margin:0}.workspace{display:block}.controls{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;padding-top:15px;margin-bottom:20px}.controls>.section-number:first-child{grid-column:1/-1;margin-bottom:0}.controls form{grid-row:2/10}.controls>.section-number{margin:16px 0 10px!important;padding:0!important;border:0!important;font-size:9px}.controls .method,.controls .research-link{display:none}.controls>.section-number:has(+.method){display:none}.generate{margin-bottom:0}.controls .field-note{font-size:10px}.toggle{margin:6px 0;font-size:11px}.legend{margin:10px 0}.layer-buttons button{padding:7px;font-size:10px}.views{grid-template-columns:1fr}.view-card canvas{height:330px}.canvas-help{font-size:9px}.canvas-help span{display:none}.playback{padding:16px}.playback h3{font-size:12px}.timeline{gap:5px}.timeline button{padding:7px}.results-heading>span{display:none}.metric{padding:14px}.metric-row strong{font-size:20px}footer{display:block;font-size:9px}footer p{margin:9px 0}.view-state{display:block}.view-title h2{font-size:14px}.household-inspector{padding:15px}.household-heading>div{flex-basis:100%}#household-detail{gap:12px}#household-detail strong{font-size:16px}.controls>label[for=baseline-mode],.controls>select,.controls>#baseline-explanation{grid-column:2}}
+
+</style></head>
+<body>
+<header class="masthead"><a class="brand" href="./worldcraft.html"><span class="brand-icon">◈</span><span>WorldCraft<small>PROCEDURAL LANDSCAPES</small></span></a><div class="crumb">研究实验室 <span>/</span> 山地村落 <b>01</b></div><a class="back" href="./worldcraft.html">返回城市工作台 ↗</a><button id="export" class="export">↓ 导出场景</button></header>
+<main>
+<section class="intro"><div><div class="eyebrow">SETTLEMENT STUDY / 001</div><h1>让村落，顺着山势生长。</h1><p>地形决定适宜性，道路改变可达性，新的住户再推动道路延伸。</p></div><div class="experiment-tag"><i></i> 离线算法实验<span>400 × 400 m · 同地形对照</span></div></section>
+<div class="workspace">
+<aside class="controls">
+<div class="section-number">01 <span>场地与规则</span></div>
+<form id="config-form"><label for="seed">随机种子 <span>SEED</span></label><div class="seed-row"><input id="seed" type="number" min="0" max="1000000000" step="1" value="42" required><button type="button" id="shuffle" title="更换随机种子">↻</button></div>
+<label for="count">目标住宅 <output id="count-value">50 栋</output></label><input id="count" type="range" min="10" max="70" step="5" value="50">
+<label for="slope">建筑坡度上限 <output id="slope-value">22°</output></label><input id="slope" type="range" min="10" max="30" value="22">
+<p class="field-note">道路纵坡限制 32%。水域不可建设，住宅间距至少 22 m。</p><button id="generate" class="generate" type="submit">生成山地村落 <span>↗</span></button></form>
+<div class="section-number">02 <span>观察图层</span></div>
+<div class="layer-buttons" role="group" aria-label="观察图层"><button data-layer="terrain" class="active" aria-pressed="true">自然地形</button><button data-layer="slope" aria-pressed="false">坡度</button><button data-layer="suitability" aria-pressed="false">选址适宜性</button></div>
+<div class="legend" id="legend"><span>低海拔</span><i></i><span>高海拔</span></div><p class="field-note">适宜性图仅显示坡度与水域条件；逐步选址另计道路、中心与邻居偏好。</p>
+<label class="toggle"><input type="checkbox" id="top-view">平面俯视</label><label class="toggle"><input type="checkbox" id="show-parcels" checked>宅地与入户步道</label><label class="toggle"><input type="checkbox" id="compare" checked>显示对照</label>
+<label for="baseline-mode">对照模型</label><select id="baseline-mode"><option value="slope">坡度随机布局</option><option value="grid">规则网格基线</option></select><p class="field-note" id="baseline-explanation">共用坡度、水域、间距与寻路约束；随机选址不计中心和邻里兴趣。</p>
+<div class="section-number">03 <span>生成依据</span></div>
+<ol class="method"><li><b>评估场地</b><span>坡度、水域与可建设边界</span></li><li><b>选择住址</b><span>地形、道路、中心和邻居偏好</span></li><li><b>接入山路</b><span>A* 寻路，权衡长度与纵坡</span></li><li><b>更新可达性</b><span>继续生长，保持接路与避让</span></li></ol>
+<a class="research-link" href="./docs/PROCEDURAL_SETTLEMENT_RESEARCH.md">研究资料与算法来源 ↗</a>
+</aside>
+<section class="study">
+<div class="view-toolbar"><span><i></i><strong id="status">正在分析山地…</strong></span><div><button id="reset-view" title="重置视角">⌖ 适配视图</button><button id="zoom-out" aria-label="缩小">−</button><button id="zoom-in" aria-label="放大">＋</button></div></div>
+<div class="views" id="views"><article class="view-card"><div class="view-title"><span class="badge">A</span><div><h2>顺应地形的聚落</h2><p>兴趣评分 + 道路反馈</p></div><span class="view-state">ADAPTIVE</span></div><canvas id="adaptive" aria-label="可拖动旋转缩放的山地村落三维视图"></canvas><div class="map-label"><span>入口 <i class="entrance-key"></i></span><span>生长中心 <i class="center-key"></i></span><span>住宅 <i class="house-key"></i></span></div></article>
+<article class="view-card baseline-card"><div class="view-title"><span class="badge baseline">B</span><div><h2 id="baseline-title">坡度随机布局</h2><p id="baseline-subtitle">相同硬约束与寻路 · 移除兴趣评分</p></div><span class="view-state">CONTROL</span></div><canvas id="baseline" aria-label="可选择的布局对照三维视图"></canvas><div class="baseline-note" id="baseline-note">坡度随机对照 · 同地形、预算与建筑规则</div></article></div>
+<div class="canvas-help">拖动旋转 · 滚轮缩放 · 点击左侧住宅查看宅地 <span>单位：米 / 纵坡：%</span></div>
+<section class="household-inspector" aria-label="逐户查看"><div class="household-heading"><div><span class="eyebrow">HOUSEHOLD / LAND & ACCESS</span><h3>一户住宅，一块宅地，一条回家的路</h3></div><select id="household-select" aria-label="选择住宅"></select><button id="focus-household">定位住宅</button></div><div id="household-detail" aria-live="polite"></div></section>
+<section class="playback"><div class="playback-heading"><div><span class="eyebrow">GROWTH TIMELINE</span><h3>观察每一次落脚与接路</h3></div><strong id="step-label">50 / 50</strong></div><div class="timeline"><button id="play" aria-label="播放生长过程">▶ 播放</button><button id="restart" title="从头回放">↶</button><input id="timeline" aria-label="生长阶段" type="range" min="0" max="50" value="50"><span id="phase">完整村落</span></div><p id="event-text" aria-live="polite">选择时间轴，查看建筑选址与道路延伸。</p></section>
+<section class="results"><div class="results-heading"><h3>从形态到可量化的比较</h3><span id="comparison-scope">同一阶段 · 同一地形</span></div><div id="metrics" class="metrics"></div><p class="metric-note">建筑坡度取中心与四角的最大值。道路按 5 m 网格离散采样；红色表示超过当前约束。道路长度与聚集程度作为描述指标。</p></section>
+<div id="error" class="error" role="alert" hidden></div>
+</section></div>
+<footer><span>WorldCraft / Mountain Village Lab</span><p>借鉴地形兴趣图与聚落生长研究的简化原型；用于视觉布局探索，尚未包含真实道路工程、建筑结构或日照验证。</p><a href="./docs/MOUNTAIN_VILLAGE.md">算法说明 ↗</a></footer>
+</main><script>
+(()=>{
+const __households=(()=>{
+/** Bounded anisotropic raster conquest and terrain-responsive households. */
+const PARCEL_STEP=2.5;
+const SIDE=160,COUNT=SIDE*SIDE;
+const rd=v=>Math.round(v*1000)/1000;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+const key=(x,z)=>`${x},${z}`;
+const cellIndex=p=>Math.floor((p.z+200)/PARCEL_STEP)*SIDE+Math.floor((p.x+200)/PARCEL_STEP);
+const center=i=>({x:(i%SIDE+.5)*PARCEL_STEP-200,z:(Math.floor(i/SIDE)+.5)*PARCEL_STEP-200});
+function neighbors(i){const x=i%SIDE,z=Math.floor(i/SIDE);return [[1,0],[-1,0],[0,1],[0,-1]].flatMap(([dx,dz])=>x+dx>=0&&x+dx<SIDE&&z+dz>=0&&z+dz<SIDE?[(z+dz)*SIDE+x+dx]:[]);}
+function localPoint(b,u,v){const a=b.rotation??0,c=Math.cos(a),s=Math.sin(a);return {x:rd(b.x+u*c-v*s),z:rd(b.z+u*s+v*c)};}
+function buildingFootprint(b){return [[-5,-4],[5,-4],[5,4],[-5,4]].map(([u,v])=>localPoint(b,u,v));}
+function contourRotation(terrain,p,sample,entry){
+  const dx=(sample(terrain,p.x+1,p.z).height-sample(terrain,p.x-1,p.z).height)/2;
+  const dz=(sample(terrain,p.x,p.z+1).height-sample(terrain,p.x,p.z-1).height)/2;
+  let a=Math.hypot(dx,dz)>.01?Math.atan2(dx,-dz):entry?Math.atan2(entry.z-p.z,entry.x-p.x)-Math.PI/2:0;
+  if(entry&&-(entry.x-p.x)*Math.sin(a)+(entry.z-p.z)*Math.cos(a)<0)a+=Math.PI;
+  return a;
+}
+function segdist(p,a,b){const dx=b.x-a.x,dz=b.z-a.z,l=dx*dx+dz*dz,t=l?Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.z-a.z)*dz)/l)):0;return Math.hypot(p.x-a.x-t*dx,p.z-a.z-t*dz);}
+class Queue{
+  data=[];
+  push(q){let i=this.data.length;this.data.push(q);while(i){const p=(i-1)>>1;if(this.data[p].cost<=q.cost)break;this.data[i]=this.data[p];i=p;}this.data[i]=q;}
+  pop(){const q=this.data[0],v=this.data.pop();if(this.data.length){let i=0;while(i*2+1<this.data.length){let k=i*2+1;if(k+1<this.data.length&&this.data[k+1].cost<this.data[k].cost)k++;if(this.data[k].cost>=v.cost)break;this.data[i]=this.data[k];i=k;}this.data[i]=v;}return q;}
+}
+function cellPolygon(i){const x=(i%SIDE)*PARCEL_STEP-200,z=Math.floor(i/SIDE)*PARCEL_STEP-200;return [[x,z],[x+PARCEL_STEP,z],[x+PARCEL_STEP,z+PARCEL_STEP],[x,z+PARCEL_STEP]];}
+function boundary(cellIds){
+  const edges=new Map();
+  for(const i of cellIds){const poly=cellPolygon(i);for(let k=0;k<4;k++){const a=poly[k],b=poly[(k+1)%4],rev=`${key(...b)}>${key(...a)}`;
+    if(edges.has(rev))edges.delete(rev);else edges.set(`${key(...a)}>${key(...b)}`,{a,b});}}
+  const next=new Map();for(const e of edges.values()){const k=key(...e.a);if(!next.has(k))next.set(k,[]);next.get(k).push(e);}
+  const seen=new Set(),rings=[];
+  for(const first of edges.values()){
+    if(seen.has(first))continue;let e=first,ring=[];
+    while(e&&!seen.has(e)){seen.add(e);ring.push(e.a);const options=(next.get(key(...e.b))??[]).filter(v=>!seen.has(v));
+      const dx=e.b[0]-e.a[0],dz=e.b[1]-e.a[1];
+      options.sort((u,v)=>Math.atan2(dx*(u.b[1]-u.a[1])-dz*(u.b[0]-u.a[0]),dx*(u.b[0]-u.a[0])+dz*(u.b[1]-u.a[1]))-Math.atan2(dx*(v.b[1]-v.a[1])-dz*(v.b[0]-v.a[0]),dx*(v.b[0]-v.a[0])+dz*(v.b[1]-v.a[1])));
+      e=options[0];
+    }
+    if(ring.length>2)rings.push(ring);
+  }
+  return rings;
+}
+function routeWithin(ids,start,end){
+  const allowed=new Set(ids),s=cellIndex(start),g=cellIndex(end),prev=new Map([[s,-1]]),queue=[s];
+  for(let at=0;at<queue.length;at++){const i=queue[at];if(i===g)break;for(const j of neighbors(i))if(allowed.has(j)&&!prev.has(j)){prev.set(j,i);queue.push(j);}}
+  if(!prev.has(g))return null;const path=[];for(let i=g;i!==-1;i=prev.get(i))path.push(center(i));
+  return path.reverse();
+}
+function parcelContains(parcel,p){
+  // Include shared boundary: door/gate and footprint containment use the same raster facts.
+  return parcel.cells.some(poly=>p.x>=poly[0][0]-1e-5&&p.x<=poly[2][0]+1e-5&&p.z>=poly[0][1]-1e-5&&p.z<=poly[2][1]+1e-5);
+}
+function attachHouseholds(terrain,buildings,roads,config,sample){
+  if(!buildings.length)return [];
+  const roadMask=new Uint8Array(COUNT),blocked=new Uint8Array(COUNT),heights=new Float64Array(COUNT),fixed=new Int16Array(COUNT).fill(-1);
+  const own=new Int16Array(COUNT).fill(-1),costs=new Float64Array(COUNT).fill(Infinity),heap=new Queue();
+  // Rasterize only local segment bounding boxes instead of testing every cell against every road.
+  for(const road of roads)for(let k=1;k<road.points.length;k++){
+    const a=road.points[k-1],b=road.points[k],margin=4.5;
+    const x0=Math.max(0,Math.floor((Math.min(a.x,b.x)-margin+200)/PARCEL_STEP)),x1=Math.min(SIDE-1,Math.floor((Math.max(a.x,b.x)+margin+200)/PARCEL_STEP));
+    const z0=Math.max(0,Math.floor((Math.min(a.z,b.z)-margin+200)/PARCEL_STEP)),z1=Math.min(SIDE-1,Math.floor((Math.max(a.z,b.z)+margin+200)/PARCEL_STEP));
+    for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++){const i=z*SIDE+x;if(segdist(center(i),a,b)<3.4)roadMask[i]=1;}
+  }
+  for(let i=0;i<COUNT;i++){const p=center(i),t=sample(terrain,p.x,p.z);heights[i]=t.height;
+    const wet=cellPolygon(i).some(([x,z])=>sample(terrain,x,z).water);
+    blocked[i]=roadMask[i]||wet||Math.abs(p.x)>190||Math.abs(p.z)>190?1:0;
+  }
+  for(const [owner,b] of buildings.entries()){
+    b.rotation=contourRotation(terrain,b,sample,b.entry);b.footprint=buildingFootprint(b);b.parcelId=`P-${b.id}`;
+    const c=Math.cos(b.rotation),s=Math.sin(b.rotation),door=localPoint(b,0,4);
+    b.door={...door,height:sample(terrain,door.x,door.z).height};
+    for(let i=0;i<COUNT;i++){
+      const p=center(i);if(dist(p,b)>23)continue;
+      const u=(p.x-b.x)*c+(p.z-b.z)*s,v=-(p.x-b.x)*s+(p.z-b.z)*c;
+      const footprint=Math.abs(u)<7.1&&Math.abs(v)<6.1;
+      const approach=segdist(p,b,b.entry)<2.4&&dist(p,b.entry)>3;
+      if(!blocked[i]&&(footprint||approach)){
+        if(fixed[i]!==-1&&fixed[i]!==owner)throw Error('宅地保留区域发生冲突');
+        fixed[i]=owner;own[i]=owner;costs[i]=0;heap.push({i,owner,cost:0});
+      }
+    }
+  }
+  while(heap.data.length){const q=heap.pop();if(own[q.i]!==q.owner||costs[q.i]!==q.cost)continue;
+    const b=buildings[q.owner],a=center(q.i);
+    for(const j of neighbors(q.i)){
+      if(blocked[j]||(fixed[j]>=0&&fixed[j]!==q.owner))continue;
+      const p=center(j);if(dist(p,b)>30)continue;
+      const dx=p.x-a.x,dz=p.z-a.z,along=Math.abs((dx*Math.cos(b.rotation)+dz*Math.sin(b.rotation))/PARCEL_STEP);
+      const grade=Math.abs(heights[j]-heights[q.i])/PARCEL_STEP;
+      const cost=q.cost+PARCEL_STEP*(1+.45*(1-along)+3*grade);
+      if(cost>=costs[j]||cost>29)continue;
+      costs[j]=cost;own[j]=q.owner;heap.push({i:j,owner:q.owner,cost});
+    }
+  }
+  const parcels=[];
+  for(const [owner,b] of buildings.entries()){
+    // Keep only the four-connected component containing this home; no detached islands.
+    const seed=cellIndex(b),visited=new Set([seed]),ids=[seed];
+    for(let k=0;k<ids.length;k++)for(const j of neighbors(ids[k]))if(own[j]===owner&&!visited.has(j)){visited.add(j);ids.push(j);}
+    ids.sort((a,b)=>a-b);
+    const frontage=[];
+    for(const i of ids){const poly=cellPolygon(i),ix=i%SIDE,iz=Math.floor(i/SIDE);
+      for(const [dx,dz,edge] of [[0,-1,0],[1,0,1],[0,1,2],[-1,0,3]]){
+        const nx=ix+dx,nz=iz+dz;if(nx<0||nx>=SIDE||nz<0||nz>=SIDE||!roadMask[nz*SIDE+nx])continue;
+        frontage.push({a:poly[edge],b:poly[(edge+1)%4],cellId:i});
+      }
+    }
+    if(!frontage.length)throw Error(`${b.id}: 宅地未接触道路`);
+    const gateEdge=[...frontage].sort((u,v)=>dist({x:(u.a[0]+u.b[0])/2,z:(u.a[1]+u.b[1])/2},b.entry)-dist({x:(v.a[0]+v.b[0])/2,z:(v.a[1]+v.b[1])/2},b.entry))[0];
+    const gate={x:(gateEdge.a[0]+gateEdge.b[0])/2,z:(gateEdge.a[1]+gateEdge.b[1])/2};
+    const path=routeWithin(ids,b.door,center(gateEdge.cellId));if(!path)throw Error(`${b.id}: 入户路径不连通`);
+    b.gate={...gate,height:sample(terrain,gate.x,gate.z).height};
+    b.walkway=[b.door,...path.map(p=>({...p,height:sample(terrain,p.x,p.z).height})),b.gate];
+    b.roadConnection=[b.gate,b.entry];
+    b.foundation=[];
+    const parcelCells=ids.map(cellPolygon),ownParcel={cells:parcelCells};
+    // Three bands across the slope: independent heights create a stepped plinth.
+    for(let k=0;k<3;k++){
+      const v0=-4+k*8/3,v1=-4+(k+1)*8/3;
+      let points;
+      for(const halfWidth of [6,5.5,5]){
+        points=[localPoint(b,-halfWidth,v0),localPoint(b,halfWidth,v0),localPoint(b,halfWidth,v1),localPoint(b,-halfWidth,v1)];
+        if(points.every(p=>parcelContains(ownParcel,p)))break;
+      }
+      const groundHeights=points.map(p=>sample(terrain,p.x,p.z).height);
+      b.foundation.push({points,groundHeights,top:rd(Math.max(...groundHeights)+.35)});
+    }
+    b.floorHeight=rd(Math.max(...b.foundation.map(f=>f.top))+.2);
+    b.door.floorHeight=b.floorHeight;
+    // Raise the first metres of the approach into explicit stair treads up to the door.
+    let walkDistance=0;
+    for(let k=0;k<b.walkway.length;k++){
+      if(k)walkDistance+=dist(b.walkway[k-1],b.walkway[k]);
+      const p=b.walkway[k],ground=sample(terrain,p.x,p.z).height;
+      p.height=rd(Math.max(ground+.05,b.floorHeight-walkDistance*.55));
+    }
+    b.entrySteps=b.walkway.slice(1).flatMap((p,i)=>{
+      const a=b.walkway[i],rise=a.height-p.height;if(rise<.12)return [];
+      const n=Math.ceil(rise/.18);return Array.from({length:n},(_,k)=>{
+        const t=(k+.5)/n;return {x:rd(a.x+(p.x-a.x)*t),z:rd(a.z+(p.z-a.z)*t),height:rd(a.height-rise*(k+1)/n)};
+      });
+    });
+    parcels.push({id:b.parcelId,buildingId:b.id,born:b.born,step:PARCEL_STEP,cellIds:ids,cells:parcelCells,rings:boundary(ids),
+      area:ids.length*PARCEL_STEP**2,frontage,frontageLength:rd(frontage.length*PARCEL_STEP),gate:b.gate,enclosure:{height:.7,gateWidth:2.5}});
+  }
+  return parcels;
+}
+function validateHouseholds(scene){
+  const errors=[],occupied=new Set(),parcels=scene.parcels??[];
+  if(parcels.length!==scene.buildings.length)errors.push('住宅与宅地数量不一致');
+  for(const p of parcels){for(const i of p.cellIds){if(occupied.has(i))errors.push(`${p.id}: 宅地单元重复`);occupied.add(i);}
+    if(p.area!==p.cellIds.length*PARCEL_STEP**2)errors.push(`${p.id}: 宅地面积不一致`);
+    const cells=new Set(p.cellIds),visited=new Set([p.cellIds[0]]),queue=[p.cellIds[0]];
+    for(let k=0;k<queue.length;k++)for(const j of neighbors(queue[k]))if(cells.has(j)&&!visited.has(j)){visited.add(j);queue.push(j);}
+    if(visited.size!==cells.size)errors.push(`${p.id}: 宅地不连通`);
+    if(!p.frontage.length)errors.push(`${p.id}: 无临路边`);
+    if(p.cells.length!==p.cellIds.length)errors.push(`${p.id}: 宅地几何单元不一致`);
+  }
+  for(const b of scene.buildings){const p=parcels.find(p=>p.id===b.parcelId&&p.buildingId===b.id);
+    if(!p){errors.push(`${b.id}: 缺少所属宅地`);continue;}
+    const samples=[...(b.footprint??[]),...(b.walkway??[]),...(b.foundation??[]).flatMap(f=>f.points)];
+    for(const path of [b.footprint??[],b.walkway??[]])for(let i=1;i<path.length;i++){
+      const a=path[i-1],q=path[i],n=Math.max(1,Math.ceil(dist(a,q)/.5));
+      for(let k=1;k<n;k++)samples.push({x:a.x+(q.x-a.x)*k/n,z:a.z+(q.z-a.z)*k/n});
+    }
+    for(const q of samples)if(!parcelContains(p,q))errors.push(`${b.id}: 房屋或步道越出宅地`);
+    if(!b.walkway?.length||dist(b.walkway[0],b.door)>.01||dist(b.walkway.at(-1),b.gate)>.01)errors.push(`${b.id}: 入户路径端点错误`);
+    if(!b.foundation?.length||b.foundation.some(f=>f.top<Math.max(...f.groundHeights)))errors.push(`${b.id}: 基础埋入地形`);
+  }
+  return errors;
+}
+
+return {attachHouseholds,validateHouseholds,buildingFootprint,contourRotation,localPoint};
+})();
+const {attachHouseholds,validateHouseholds,buildingFootprint,contourRotation,localPoint}=__households;
+const __village=(()=>{
+/** Mountain settlement experiment; see docs/MOUNTAIN_VILLAGE.md. */
+
+const SIZE=400, STEP=5, N=81, HOUSE_RADIUS=7, ROAD_HALF=1.5;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const round=v=>Math.round(v*1000)/1000;
+const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+function random(seed){let s=seed>>>0;return ()=>{s+=0x6D2B79F5;let t=Math.imul(s^s>>>15,1|s);t^=t+Math.imul(t^t>>>7,61|t);return ((t^t>>>14)>>>0)/4294967296;};}
+function elevation(x,z,seed){
+  const phase=(seed%101)/101;
+  return 9+87*Math.exp(-1*((x-100-phase*20)/100)**2-((z+100)/145)**2)
+    +58*Math.exp(-1*((x+165)/105)**2-((z+130+phase*25)/105)**2)
+    +19*Math.exp(-1*((x-130)/130)**2-((z-145)/80)**2)
+    +3*Math.sin(x/59+phase)*Math.cos(z/67);
+}
+const index=(x,z)=>clamp(Math.round((z+200)/STEP),0,N-1)*N+clamp(Math.round((x+200)/STEP),0,N-1);
+function point(terrain,i){return {x:(i%N)*STEP-200,z:Math.floor(i/N)*STEP-200,height:terrain.heights[i]};}
+const inWater=(x,z,margin=0)=>((x+133)/(27+margin))**2+((z-66)/(48+margin))**2<1;
+function sampleTerrain(terrain,x,z){
+  const h=elevation(x,z,terrain.seed),dx=(elevation(x+1,z,terrain.seed)-elevation(x-1,z,terrain.seed))/2;
+  const dz=(elevation(x,z+1,terrain.seed)-elevation(x,z-1,terrain.seed))/2;
+  const slope=Math.atan(Math.hypot(dx,dz))*180/Math.PI;
+  const water=inWater(x,z);
+  return {height:round(h),slope:round(slope),water,suitability:water?0:clamp(1-slope/32,0,1)};
+}
+function makeTerrain(seed=42){
+  const terrain={seed,size:SIZE,step:STEP,side:N,heights:[]};
+  for(let z=-200;z<=200;z+=STEP)for(let x=-200;x<=200;x+=STEP)terrain.heights.push(round(elevation(x,z,seed)));
+  return terrain;
+}
+function segmentDistance(p,a,b){const dx=b.x-a.x,dz=b.z-a.z,l=dx*dx+dz*dz;
+  const t=l?clamp(((p.x-a.x)*dx+(p.z-a.z)*dz)/l,0,1):0;
+  return Math.hypot(p.x-a.x-t*dx,p.z-a.z-t*dz);
+}
+function footprintSamples(b){return [{x:b.x,z:b.z},...buildingFootprint(b)];}
+function plotValid(terrain,b,maxSlope){return Math.abs(b.x)<184&&Math.abs(b.z)<184&&footprintSamples(b).every(p=>{
+  const s=sampleTerrain(terrain,p.x,p.z);return !inWater(p.x,p.z,3)&&s.slope<=maxSlope;
+});}
+function nearestRoad(p,roads){let result={distance:Infinity,point:null};
+  for(const road of roads)for(const q of road.points){const d=distance(p,q);if(d<result.distance)result={distance:d,point:q};}
+  return result;
+}
+function roadClear(p,roads,r=HOUSE_RADIUS+ROAD_HALF+1){return roads.every(road=>road.points.slice(1).every((q,i)=>segmentDistance(p,road.points[i],q)>=r));}
+class Heap{
+  items=[];
+  push(item){let i=this.items.length;this.items.push(item);while(i){const p=(i-1)>>1;if(this.items[p].f<=item.f)break;this.items[i]=this.items[p];i=p;}this.items[i]=item;}
+  pop(){const root=this.items[0],last=this.items.pop();if(this.items.length){let i=0;while(i*2+1<this.items.length){let c=i*2+1;if(c+1<this.items.length&&this.items[c+1].f<this.items[c].f)c++;if(this.items[c].f>=last.f)break;this.items[i]=this.items[c];i=c;}this.items[i]=last;}return root;}
+}
+// A*: directional longitudinal grade cost. No history-dependent turn penalty.
+function findPath(terrain,start,goal,buildings,maxGrade){
+  const s=index(start.x,start.z),g=index(goal.x,goal.z),blocked=new Uint8Array(N*N);
+  for(let i=0;i<blocked.length;i++){const p=point(terrain,i);blocked[i]=inWater(p.x,p.z,ROAD_HALF+1)||buildings.some(b=>distance(p,b)<11)?1:0;}
+  if(blocked[s]||blocked[g])return null;
+  const costs=new Float64Array(N*N).fill(Infinity),prev=new Int32Array(N*N).fill(-1),heap=new Heap();
+  costs[s]=0;heap.push({i:s,f:distance(start,goal),cost:0});
+  const dirs=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+  while(heap.items.length){
+    const item=heap.pop(),i=item.i;if(item.cost!==costs[i])continue;
+    if(i===g){const path=[];for(let k=g;k!==-1;k=prev[k])path.push(point(terrain,k));return path.reverse();}
+    const a=point(terrain,i),ix=i%N,iz=Math.floor(i/N);
+    for(const [dx,dz] of dirs){const nx=ix+dx,nz=iz+dz;if(nx<1||nx>=N-1||nz<1||nz>=N-1)continue;
+      const j=nz*N+nx;if(blocked[j])continue;
+      const b=point(terrain,j),len=distance(a,b),grade=Math.abs(a.height-b.height)/len;
+      if(grade>maxGrade||inWater((a.x+b.x)/2,(a.z+b.z)/2,ROAD_HALF+1))continue;
+      const cost=costs[i]+len*(1+20*grade*grade);
+      if(cost>=costs[j])continue;
+      costs[j]=cost;prev[j]=i;heap.push({i:j,cost,f:cost+distance(b,point(terrain,g))});
+    }
+  }
+  return null;
+}
+function measureVillage(terrain,buildings,roads,config){
+  let totalLength=0,maxGrade=0,waterRoadLength=0,steepRoadLength=0;
+  const seen=new Set();
+  for(const road of roads)for(let i=1;i<road.points.length;i++){
+    const a=road.points[i-1],b=road.points[i],length=distance(a,b),grade=Math.abs(a.height-b.height)/length;
+    const ids=[`${a.x},${a.z}`,`${b.x},${b.z}`].sort().join('|');
+    if(seen.has(ids))continue;seen.add(ids);
+    totalLength+=length;maxGrade=Math.max(maxGrade,grade);
+    if(grade>config.maxRoadGrade+1e-6)steepRoadLength+=length;
+    if(inWater(a.x,a.z,ROAD_HALF)||inWater(b.x,b.z,ROAD_HALF)||inWater((a.x+b.x)/2,(a.z+b.z)/2,ROAD_HALF))waterRoadLength+=length;
+  }
+  const slopes=buildings.map(b=>Math.max(...footprintSamples(b).map(p=>sampleTerrain(terrain,p.x,p.z).slope)));
+  return {buildingCount:buildings.length,meanSlope:round(slopes.reduce((a,b)=>a+b,0)/(slopes.length||1)),
+    slopeViolations:slopes.filter(v=>v>config.maxSlope).length,
+    waterViolations:buildings.filter(b=>footprintSamples(b).some(p=>inWater(p.x,p.z,3))).length,
+    unconnected:buildings.filter(b=>!roads.some(r=>r.points.some(p=>distance(p,b.entry)<.01))).length,
+    roadLength:round(totalLength),maxRoadGrade:round(maxGrade*100),steepRoadLength:round(steepRoadLength),waterRoadLength:round(waterRoadLength),
+    meanNeighborDistance:buildings.length<2?0:round(buildings.reduce((sum,b)=>sum+Math.min(...buildings.filter(c=>c!==b).map(c=>distance(b,c))),0)/buildings.length)};
+}
+function makeBaseline(terrain,config){
+  const buildings=[],roads=[];
+  // Explicit experimental grid baseline: same terrain and budget; no slope optimization.
+  for(const x of [-150,-100,-50,0,50,100,150]){
+    const points=[];for(let z=175;z>=-175;z-=STEP)points.push({...sampleTerrain(terrain,x,z),x,z});
+    roads.push({id:`G-${roads.length}`,kind:'grid',born:0,points});
+  }
+  const spine=[];for(let x=-150;x<=150;x+=STEP)spine.push({...sampleTerrain(terrain,x,175),x,z:175});
+  roads.push({id:'G-spine',kind:'grid',born:0,points:spine});
+  const plots=[];for(let z=145;z>=-155;z-=30)for(const x of [-135,-85,-35,15,65,115,165])plots.push({x,z});
+  // Fill near the entrance first, a regular row at a time.
+  for(const p of plots){if(buildings.length>=config.count)break;if(footprintSamples(p).some(q=>inWater(q.x,q.z,3)))continue;
+    const entry={x:p.x-10,z:p.z},near=nearestRoad({x:p.x-15,z:p.z},roads).point;
+    const points=[];for(let x=near.x;x<=entry.x;x+=STEP)points.push({x,z:entry.z,...sampleTerrain(terrain,x,entry.z)});
+    const b={id:`GB-${buildings.length+1}`,...p,height:sampleTerrain(terrain,p.x,p.z).height,entry:{...entry,height:sampleTerrain(terrain,entry.x,entry.z).height},width:10,depth:8,floors:2,born:buildings.length+1};
+    buildings.push(b);roads.push({id:`G-access-${b.born}`,kind:'access',born:b.born,points});
+  }
+  return {buildings,roads,metrics:measureVillage(terrain,buildings,roads,config)};
+}
+function generateLayout(options={},mode='adaptive'){
+  const config={seed:42,count:50,maxSlope:22,maxRoadGrade:.32,...options};
+  if(!Number.isInteger(config.seed)||config.seed<0||config.seed>1e9)throw Error('种子须为 0–1000000000 的整数');
+  if(!Number.isInteger(config.count)||config.count<10||config.count>70)throw Error('建筑数量须为 10–70');
+  if(!Number.isFinite(config.maxSlope)||config.maxSlope<10||config.maxSlope>30)throw Error('坡度上限须为 10–30°');
+  if(!Number.isFinite(config.maxRoadGrade)||config.maxRoadGrade<.15||config.maxRoadGrade>.45)throw Error('道路纵坡上限须为 0.15–0.45');
+  const terrain=makeTerrain(config.seed),rng=random(config.seed+(mode==='slope-random'?1337:0)),buildings=[],roads=[],events=[];
+  const entrance={x:0,z:180},center={x:0,z:0};
+  const trunk=findPath(terrain,entrance,center,[],config.maxRoadGrade);
+  if(!trunk)throw Error('当前约束下无法建立初始山路');
+  roads.push({id:'V-main',kind:'main',born:0,points:trunk});
+  let attempts=0;
+  while(buildings.length<config.count&&attempts<config.count*12){
+    attempts++;
+    const candidates=[];
+    for(let trial=0;trial<180;trial++){
+      const p={x:Math.round((rng()*350-175)/STEP)*STEP,z:Math.round((rng()*350-175)/STEP)*STEP};
+      p.rotation=contourRotation(terrain,p,sampleTerrain);
+      if(!plotValid(terrain,p,config.maxSlope)||buildings.some(b=>distance(p,b)<22)||!roadClear(p,roads,13))continue;
+      const nearest=nearestRoad(p,roads),s=sampleTerrain(terrain,p.x,p.z);
+      if(mode==='adaptive'&&nearest.distance>95)continue;
+      const neighbor=buildings.length?Math.min(...buildings.map(b=>distance(p,b))):35;
+      const score=mode==='slope-random'?rng():.38*(1-s.slope/config.maxSlope)+.28*Math.exp(-nearest.distance/50)
+        +.20*Math.exp(-distance(p,center)/140)+.14*Math.exp(-1*((neighbor-30)/32)**2)+rng()*.06;
+      candidates.push({p,nearest,score});
+    }
+    candidates.sort((a,b)=>b.score-a.score);
+    for(const candidate of candidates.slice(0,14)){
+      const {p,nearest,score}=candidate;
+      // Entry sits 15m towards the nearest network vertex, outside the building exclusion disk.
+      const angle=Math.atan2(nearest.point.z-p.z,nearest.point.x-p.x);
+      const entry={x:Math.round((p.x+15*Math.cos(angle))/STEP)*STEP,z:Math.round((p.z+15*Math.sin(angle))/STEP)*STEP};
+      const path=findPath(terrain,nearest.point,entry,[...buildings,p],config.maxRoadGrade);
+      if(!path||path.length<2)continue;
+      // Continuous clearance check after grid search (not just node occupancy).
+      if([...buildings,p].some(b=>path.slice(1).some((q,i)=>segmentDistance(b,path[i],q)<HOUSE_RADIUS+ROAD_HALF+1)))continue;
+      const born=buildings.length+1,id=`V-${born}`;
+      const building={id,...p,height:sampleTerrain(terrain,p.x,p.z).height,width:10,depth:8,floors:rng()>.65?3:2,
+        entry:point(terrain,index(entry.x,entry.z)),born,score:round(score),siteSlope:sampleTerrain(terrain,p.x,p.z).slope};
+      const road={id:`V-access-${born}`,kind:'access',born,points:path};
+      buildings.push(building);roads.push(road);
+      events.push({step:born,buildingId:id,roadId:road.id,reason:`坡度 ${building.siteSlope}°，兴趣评分 ${round(score)}，新增接路 ${round(path.slice(1).reduce((s,q,i)=>s+distance(q,path[i]),0))}m`});
+      break;
+    }
+  }
+  const parcels=attachHouseholds(terrain,buildings,roads,config,sampleTerrain);
+  return {version:2,model:mode==='adaptive'?'mountain-households-v2':'slope-random-households-v2',config,terrain,entrance,center,buildings,roads,events,parcels,
+    metrics:measureVillage(terrain,buildings,roads,config),
+    status:buildings.length===config.count?'complete':'capacity-limited'};
+}
+function generateVillage(options={}){
+  const scene=generateLayout(options);
+  scene.baseline=makeBaseline(scene.terrain,scene.config);
+  scene.slopeBaseline=generateLayout(options,'slope-random');
+  return scene;
+}
+function validateVillage(scene){
+  const errors=validateHouseholds(scene),{terrain,buildings,roads,config}=scene;
+  for(const b of buildings){
+    if(!plotValid(terrain,b,config.maxSlope))errors.push(`${b.id}: 地块越界、水域或坡度超限`);
+    if(!roadClear(b,roads))errors.push(`${b.id}: 道路侵入建筑`);
+  }
+  for(let i=0;i<buildings.length;i++)for(let j=i+1;j<buildings.length;j++)if(distance(buildings[i],buildings[j])<22-1e-6)errors.push('建筑间距不足');
+  const connected=new Set([index(scene.entrance.x,scene.entrance.z)]);
+  // Roads are chronological: each new path must begin at an existing network node.
+  for(const road of roads){
+    if(!connected.has(index(road.points[0].x,road.points[0].z)))errors.push(`${road.id}: 未接入入口网络`);
+    for(const p of road.points){if(inWater(p.x,p.z,ROAD_HALF))errors.push(`${road.id}: 进入水域`);connected.add(index(p.x,p.z));}
+  }
+  const m=measureVillage(terrain,buildings,roads,config);
+  if(m.unconnected)errors.push('建筑入口未接路');if(m.steepRoadLength>.001)errors.push('道路纵坡超限');
+  if(m.waterRoadLength>.001)errors.push('道路穿越水域');
+  return {valid:errors.length===0,errors};
+}
+
+return {generateVillage,sampleTerrain,measureVillage,validateVillage};
+})();
+const {generateVillage,sampleTerrain,measureVillage,validateVillage}=__village;
+(()=>{
+
+
+const $=id=>document.getElementById(id);
+let scene,step=50,layer='terrain',playing=null,busy=false,selectedId=null;
+const camera={yaw:.65,zoom:1,top:false,target:{x:0,z:0,height:0}};
+const canvases=[$('adaptive'),$('baseline')];
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const color=a=>`rgb(${a.join(',')})`;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function projection(canvas){
+  const w=canvas.clientWidth,h=canvas.clientHeight,scale=Math.min(w/620,h/(camera.top?470:380))*camera.zoom;
+  const c=Math.cos(camera.yaw),s=Math.sin(camera.yaw);
+  const target=camera.target;
+  return {scale,depth:p=>p.x*s+p.z*c,project:p=>[w/2+((p.x-target.x)*c-(p.z-target.z)*s)*scale,h*(camera.top?.50:.64)+((p.x-target.x)*s+(p.z-target.z)*c)*scale*(camera.top?1:.47)-(camera.top?0:((p.height??0)-target.height)*scale*1.1)]};
+}
+function polygon(ctx,points,fill,stroke){
+  if(!points.length)return;ctx.beginPath();ctx.moveTo(...points[0]);for(const p of points.slice(1))ctx.lineTo(...p);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.4;ctx.stroke();}
+}
+function terrainColor(x,z){
+  const t=sampleTerrain(scene.terrain,x,z);
+  if(t.water)return [119,159,159];
+  if(layer==='slope')return mix([185,207,152],[185,103,74],clamp(t.slope/35,0,1));
+  if(layer==='suitability')return mix([188,158,125],[111,155,99],clamp(1-t.slope/scene.config.maxSlope,0,1));
+  const height=t.height/100;
+  return height<.5?mix([167,193,139],[148,171,120],height*2):mix([148,171,120],[169,158,131],(height-.5)*2);
+}
+function renderMap(canvas,baseline=false){
+  if(!scene||canvas.clientWidth===0)return;
+  const ratio=Math.min(devicePixelRatio||1,2),w=canvas.clientWidth,h=canvas.clientHeight;
+  if(canvas.width!==Math.round(w*ratio)||canvas.height!==Math.round(h*ratio)){canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);}
+  const ctx=canvas.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
+  const view=projection(canvas),project=view.project,depth=view.depth,items=[],terrainItems=[];
+  const model=baseline?comparisonModel():scene;
+  const buildings=model.buildings.filter(b=>b.born<=step),roads=model.roads.filter(r=>r.born<=step);
+  // A neutral inset frame keeps the terrain legible while rotating.
+  ctx.strokeStyle='#c8d1be';ctx.lineWidth=.7;ctx.strokeRect(12,22,w-24,h-47);
+  const sample=(x,z)=>({x,z,height:sampleTerrain(scene.terrain,x,z).height});
+  // Terrain and surface roads share a painter queue; a road is split at every grid step.
+  for(let z=-200;z<200;z+=10)for(let x=-200;x<200;x+=10){
+    const points=[sample(x,z),sample(x+10,z),sample(x+10,z+10),sample(x,z+10)];
+    const h0=points[0].height,h1=points[1].height,h3=points[3].height;
+    const shade=clamp(1+(h0-h1)*.018+(h0-h3)*.012,.80,1.13);
+    const fill=color(terrainColor(x+5,z+5).map(v=>Math.round(clamp(v*shade,0,255))));
+    terrainItems.push({d:depth({x:x+5,z:z+5}),draw:()=>polygon(ctx,points.map(project),fill,fill)});
+  }
+  // Base walls expose the relief rather than flattening the mountain into a map.
+  if(!camera.top){for(const edge of [[[-200,-200],[200,-200]],[[200,-200],[200,200]],[[200,200],[-200,200]],[[-200,200],[-200,-200]]]){
+    const a=sample(...edge[0]),b=sample(...edge[1]);
+    if(depth({x:(a.x+b.x)/2,z:(a.z+b.z)/2})<0)continue;
+    const pts=[];for(let i=0;i<=40;i++){const t=i/40;pts.push(project(sample(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t)));}
+    pts.push(project({...b,height:-8}),project({...a,height:-8}));polygon(ctx,pts,'#a8ae95');
+  }}
+  terrainItems.sort((a,b)=>a.d-b.d);for(const item of terrainItems)item.draw();
+  if($('show-parcels').checked){
+    for(const parcel of model.parcels??[]){if(parcel.born>step)continue;
+      const active=!baseline&&parcel.buildingId===selectedId;
+      for(const cell of parcel.cells){const pts=cell.map(([x,z])=>project({x,z,height:sampleTerrain(scene.terrain,x,z).height+.25}));polygon(ctx,pts,active?'rgba(214,175,94,.37)':'rgba(227,219,175,.16)');}
+      ctx.strokeStyle=active?'#bb8639':'rgba(99,114,73,.65)';ctx.lineWidth=active?1.6:.7;
+      for(const ring of parcel.rings){ctx.beginPath();ring.forEach(([x,z],i)=>{const p=project({x,z,height:sampleTerrain(scene.terrain,x,z).height+.35});if(i)ctx.lineTo(...p);else ctx.moveTo(...p);});ctx.closePath();ctx.stroke();}
+      if(active&&!camera.top)for(const ring of parcel.rings)for(let i=0;i<ring.length;i++){
+        const a=ring[i],b=ring[(i+1)%ring.length];if(Math.hypot((a[0]+b[0])/2-parcel.gate.x,(a[1]+b[1])/2-parcel.gate.z)<parcel.enclosure.gateWidth)continue;
+        const p={x:a[0],z:a[1],height:sampleTerrain(scene.terrain,...a).height},q={x:b[0],z:b[1],height:sampleTerrain(scene.terrain,...b).height};
+        polygon(ctx,[project(p),project(q),project({...q,height:q.height+parcel.enclosure.height}),project({...p,height:p.height+parcel.enclosure.height})],'#aeaa8d','#8c9279');
+      }
+      if(active)for(const edge of parcel.frontage){ctx.beginPath();ctx.moveTo(...project({x:edge.a[0],z:edge.a[1],height:sampleTerrain(scene.terrain,...edge.a).height+.5}));ctx.lineTo(...project({x:edge.b[0],z:edge.b[1],height:sampleTerrain(scene.terrain,...edge.b).height+.5}));ctx.strokeStyle='#447a79';ctx.lineWidth=2;ctx.stroke();}
+    }
+    for(const b of buildings){if(!b.walkway)continue;
+      for(const path of [b.walkway,b.roadConnection]){ctx.beginPath();path.forEach((p,i)=>{if(i)ctx.lineTo(...project({...p,height:p.height+.4}));else ctx.moveTo(...project({...p,height:p.height+.4}));});ctx.strokeStyle=b.id===selectedId&&!baseline?'#c19244':'#c3ab7d';ctx.lineWidth=Math.max(1,view.scale*1.3);ctx.stroke();}
+      const gate=project(b.gate);ctx.fillStyle='#526e62';ctx.fillRect(gate[0]-1.5,gate[1]-1.5,3,3);
+      if(!camera.top)for(const stair of b.entrySteps??[]){const p=project(stair);ctx.strokeStyle='#b6aa8c';ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(p[0]-view.scale,p[1]);ctx.lineTo(p[0]+view.scale,p[1]);ctx.stroke();}
+    }
+  }
+  for(const road of roads)for(let i=1;i<road.points.length;i++){
+    const a=road.points[i-1],b=road.points[i],grade=Math.abs(a.height-b.height)/Math.hypot(a.x-b.x,a.z-b.z);
+    const bad=baseline&&(grade>scene.config.maxRoadGrade||sampleTerrain(scene.terrain,(a.x+b.x)/2,(a.z+b.z)/2).water);
+    items.push({d:depth({x:(a.x+b.x)/2,z:(a.z+b.z)/2}),order:1,draw:()=>{
+      ctx.beginPath();ctx.moveTo(...project({...a,height:a.height+.5}));ctx.lineTo(...project({...b,height:b.height+.5}));
+      ctx.strokeStyle=bad?'#c07559':road.kind==='main'?'#eee4cb':'#e1d5b9';
+      ctx.lineWidth=Math.max(1,view.scale*(road.kind==='main'?4:2.8));ctx.lineCap='round';ctx.stroke();
+    }});
+  }
+  // Surface overlays are depth-sorted; this lightweight preview has no terrain z-buffer.
+  for(const b of buildings)items.push({d:depth(b),order:2,draw:()=>drawHouse(ctx,b,project,view,baseline)});
+  items.sort((a,b)=>a.d-b.d||a.order-b.order);for(const item of items)item.draw();
+  for(const [p,label,fill] of [[scene.entrance,'入口','#3f7983'],[scene.center,'生长中心','#b27c3f']]){
+    const q=project({...p,height:sampleTerrain(scene.terrain,p.x,p.z).height+1});ctx.beginPath();ctx.arc(...q,3.5,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();
+    ctx.font='9px "Segoe UI","Microsoft YaHei"';ctx.fillStyle='#485d46';ctx.fillText(label,q[0]+7,q[1]+3);
+  }
+  // North arrow and scale are drawn in screen space.
+  ctx.font='9px "Segoe UI"';ctx.fillStyle='#7b8b73';ctx.fillText('N',w-30,38);
+  ctx.strokeStyle='#89987e';ctx.beginPath();ctx.moveTo(w-27,45);ctx.lineTo(w-27,62);ctx.stroke();
+  const length=50*view.scale;ctx.beginPath();ctx.moveTo(w-25-length,h-20);ctx.lineTo(w-25,h-20);ctx.stroke();ctx.fillText('50 m',w-25-length,h-25);
+}
+function drawHouse(ctx,b,project,view,baseline){
+  const ground=(b.footprint??[[-5,-4],[5,-4],[5,4],[-5,4]].map(([dx,dz])=>({x:b.x+dx,z:b.z+dz}))).map(p=>({...p,height:sampleTerrain(scene.terrain,p.x,p.z).height}));
+  const foundation=b.floorHeight??Math.max(...ground.map(p=>p.height))+.5,wall=foundation+b.floors*2.8;
+  const bottom=ground.map(p=>project({...p,height:b.foundation?foundation:p.height})),top=ground.map(p=>project({...p,height:wall}));
+  const bad=baseline&&Math.max(...ground.map(p=>sampleTerrain(scene.terrain,p.x,p.z).slope))>scene.config.maxSlope;
+  const fresh=!baseline&&(b.id===selectedId||(b.born===step&&step<scene.buildings.length));
+  if(camera.top){polygon(ctx,ground.map(p=>project(p)),bad?'#b4684b':'#936747','#6e6651');return;}
+  for(const slab of b.foundation??[]){
+    const slabTop=slab.points.map(p=>project({...p,height:slab.top})),slabBottom=slab.points.map((p,i)=>project({...p,height:slab.groundHeights[i]}));
+    for(let i=0;i<4;i++){const j=(i+1)%4;polygon(ctx,[slabBottom[i],slabBottom[j],slabTop[j],slabTop[i]],i%2?'#9d9a85':'#b1ac96','#888b77');}
+    polygon(ctx,slabTop,'#c3baa0');
+  }
+  const faceColors=['#b9b294','#d4cdb2','#e4dbc0','#c8bea0'];
+  const faces=ground.map((p,i)=>({i,d:view.depth({x:(p.x+ground[(i+1)%4].x)/2,z:(p.z+ground[(i+1)%4].z)/2})})).sort((a,b)=>a.d-b.d);
+  for(const {i,d} of faces){if(d<view.depth(b))continue;const j=(i+1)%4;
+    polygon(ctx,[bottom[i],bottom[j],top[j],top[i]],bad?'#d1a58c':faceColors[i],'#a59b7f');
+    const x=(top[i][0]+top[j][0])/2,y=(top[i][1]+top[j][1])/2+Math.max(2,view.scale*2.3);
+    ctx.fillStyle='#596658';ctx.fillRect(x-1,y,Math.max(1,view.scale*1.8),Math.max(1,view.scale*2));
+  }
+  const ridge=[project({...localPoint(b,-5,0),height:wall+3.2}),project({...localPoint(b,5,0),height:wall+3.2})];
+  polygon(ctx,[top[0],top[1],ridge[1],ridge[0]],bad?'#b45f40':'#9b7051','#82634a');
+  polygon(ctx,[ridge[0],ridge[1],top[2],top[3]],bad?'#c47954':'#b88a60','#82634a');
+  if(b.door){const p=project({...b.door,height:foundation+.1}),q=project({...b.door,height:foundation+2});ctx.beginPath();ctx.moveTo(...p);ctx.lineTo(...q);ctx.strokeStyle='#3b5147';ctx.lineWidth=Math.max(1.3,view.scale*1.5);ctx.stroke();}
+  if(fresh){const p=project({...b,height:wall+6});ctx.strokeStyle='#e5ae4f';ctx.lineWidth=2;ctx.beginPath();ctx.arc(...p,7,0,Math.PI*2);ctx.stroke();}
+}
+function render(){canvases.forEach((canvas,i)=>renderMap(canvas,i===1));}
+function comparisonModel(){return $('baseline-mode').value==='grid'?scene.baseline:scene.slopeBaseline;}
+function updateInspector(){
+  const visible=scene.buildings.filter(b=>b.born<=step);
+  if(!visible.some(b=>b.id===selectedId))selectedId=visible[0]?.id??null;
+  $('household-select').innerHTML=visible.map(b=>`<option value="${b.id}" ${b.id===selectedId?'selected':''}>住宅 ${b.id}</option>`).join('');
+  $('household-select').disabled=!visible.length;$('focus-household').disabled=!visible.length;
+  const b=visible.find(b=>b.id===selectedId),p=scene.parcels.find(p=>p.buildingId===selectedId);
+  if(!b||!p){$('household-detail').innerHTML='<p class="field-note">当前阶段尚无住户。向前移动时间轴查看。</p>';return;}
+  const pathLength=b.walkway.slice(1).reduce((sum,q,i)=>sum+Math.hypot(q.x-b.walkway[i].x,q.z-b.walkway[i].z),0);
+  const angle=((b.rotation*180/Math.PI)%180+180)%180;
+  $('household-detail').innerHTML=`<div><small>宅地 ${p.id}</small><strong>${p.area.toFixed(0)} <em>m²</em></strong><span>院落余地 ${(p.area-80).toFixed(0)} m² · 临路边 ${p.frontageLength.toFixed(1)} m</span></div><div><small>朝向与入口</small><strong>${angle.toFixed(0)}<em>° 等高线方向</em></strong><span>门 → 院内步道 → 院门 → 接路点</span></div><div><small>入户步道</small><strong>${pathLength.toFixed(1)} <em>m</em></strong><span>入口 ${b.entrySteps.length} 级踏步 · 院门已定位</span></div><div><small>阶梯基础标高</small><strong>${b.foundation.map(f=>f.top.toFixed(1)).join(' / ')} <em>m</em></strong><span>三段基础 · 地形相对标高</span></div>`;
+}
+function visibleMetrics(model){const b=model.buildings.filter(b=>b.born<=step),r=model.roads.filter(r=>r.born<=step);return measureVillage(scene.terrain,b,r,scene.config);}
+function updateStep(){
+  $('timeline').value=step;$('step-label').textContent=`${step} / ${scene.buildings.length}`;
+  $('phase').textContent=step===0?'初始山路':step===scene.buildings.length?'完整村落':'逐步生长';
+  $('event-text').textContent=step===0?'初始山路连接场地入口与生长中心，尚未选择住宅。':scene.events[step-1]?.reason??'';
+  updateInspector();
+  const control=comparisonModel(),a=visibleMetrics(scene),b=visibleMetrics(control);
+  const entries=[['住宅数量','buildingCount','栋'],['建筑超坡 / 涉水',null,'栋'],['道路超坡 / 涉水',null,'m'],['道路总长','roadLength','m']];
+  const rows=(v,isBase,unit,bad)=>`<div class="metric-row ${isBase?'base':''}"><small>${isBase?'B':'A'}</small><strong class="${bad?'bad':''}">${v}</strong><span>${unit}</span></div>`;
+  $('metrics').innerHTML=entries.map(([title,key,unit],i)=>{
+    const val=m=>i===1?`${m.slopeViolations} / ${m.waterViolations}`:i===2?`${Math.round(m.steepRoadLength)} / ${Math.round(m.waterRoadLength)}`:Math.round(m[key]);
+    const bad=m=>i===1?m.slopeViolations+m.waterViolations>0:i===2?m.steepRoadLength+m.waterRoadLength>0:false;
+    return `<div class="metric"><div class="metric-title">${title}</div>${rows(val(a),false,unit,bad(a))}${rows(val(b),true,unit,bad(b))}</div>`;
+  }).join('');
+  $('comparison-scope').textContent=`阶段 ${step} · 实际数量 A ${a.buildingCount} / B ${b.buildingCount} · 坡度均值 ${a.meanSlope}° / ${b.meanSlope}°`;
+  render();
+}
+function pause(){if(playing)clearInterval(playing);playing=null;$('play').textContent='▶ 播放';$('play').setAttribute('aria-label','播放生长过程');}
+function play(){if(playing){pause();return;}if(step>=scene.buildings.length)step=0;
+  $('play').textContent='Ⅱ 暂停';$('play').setAttribute('aria-label','暂停生长过程');updateStep();
+  playing=setInterval(()=>{step++;updateStep();if(step>=scene.buildings.length)pause();},320);
+}
+async function generate(){
+  if(busy)return;pause();busy=true;$('generate').disabled=true;$('status').textContent='正在分析地形与道路…';$('error').hidden=true;
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  try{
+    const next=generateVillage({seed:Number($('seed').value),count:Number($('count').value),maxSlope:Number($('slope').value)});
+    const report=validateVillage(next);if(!report.valid)throw Error(report.errors.join('；'));
+    scene=next;step=scene.buildings.length;selectedId=scene.buildings[0]?.id??null;$('timeline').max=step;
+    $('status').textContent=scene.status==='complete'?`${step} 栋住宅 · 空间检查通过`:`已生成 ${step} / ${scene.config.count} 栋 · 达到当前布局预算`;
+    updateStep();
+  }catch(error){$('error').hidden=false;$('error').textContent=error.message;$('status').textContent='生成失败，请调整参数';}
+  finally{busy=false;$('generate').disabled=false;}
+}
+$('config-form').addEventListener('submit',event=>{event.preventDefault();generate();});
+for(const [id,target,suffix] of [['count','count-value',' 栋'],['slope','slope-value','°']])$(id).addEventListener('input',()=>{$(target).textContent=$(id).value+suffix;});
+$('shuffle').addEventListener('click',()=>{if(busy)return;$('seed').value=Math.floor(Math.random()*1e6);generate();});
+document.querySelectorAll('[data-layer]').forEach(button=>button.addEventListener('click',()=>{
+  layer=button.dataset.layer;document.querySelectorAll('[data-layer]').forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));});
+  $('legend').innerHTML=layer==='terrain'?'<span>低海拔</span><i></i><span>高海拔</span>':layer==='slope'?'<span>平缓</span><i style="background:linear-gradient(90deg,#b9cf98,#b9674a)"></i><span>陡峭</span>':'<span>低适宜</span><i style="background:linear-gradient(90deg,#bc9e7d,#6f9b63)"></i><span>高适宜</span>';
+  render();
+}));
+$('timeline').addEventListener('input',()=>{if(!scene)return;pause();step=Number($('timeline').value);updateStep();});
+$('play').addEventListener('click',()=>{if(scene)play();});$('restart').addEventListener('click',()=>{if(!scene)return;pause();step=0;updateStep();});
+$('top-view').addEventListener('change',()=>{camera.top=$('top-view').checked;render();});
+$('show-parcels').addEventListener('change',render);
+$('household-select').addEventListener('change',()=>{selectedId=$('household-select').value;updateInspector();render();});
+$('focus-household').addEventListener('click',()=>{const b=scene?.buildings.find(b=>b.id===selectedId);if(!b)return;camera.target={x:b.x,z:b.z,height:b.height-25};camera.zoom=2.5;render();});
+$('baseline-mode').addEventListener('change',()=>{
+  const grid=$('baseline-mode').value==='grid';
+  $('baseline-title').textContent=grid?'规则网格基线':'坡度随机布局';$('baseline-subtitle').textContent=grid?'固定网格 · 未按坡度优化':'相同硬约束与寻路 · 移除兴趣评分';
+  $('baseline-note').textContent=grid?'实验对照：未按坡度优化的网格布局':'坡度随机对照 · 同地形、预算与建筑规则';
+  $('baseline-explanation').textContent=grid?'保留旧网格示意，用于观察固定路网的山地局限。':'共用坡度、水域、间距与寻路约束；随机选址不计中心和邻里兴趣。';
+  if(scene)updateStep();
+});
+$('compare').addEventListener('change',()=>{$('views').classList.toggle('single',!$('compare').checked);requestAnimationFrame(render);});
+$('reset-view').addEventListener('click',()=>{camera.yaw=.65;camera.zoom=1;camera.target={x:0,z:0,height:0};render();});
+const zoom=amount=>{camera.zoom=clamp(camera.zoom*amount,.65,2.5);render();};
+$('zoom-in').addEventListener('click',()=>zoom(1.15));$('zoom-out').addEventListener('click',()=>zoom(1/1.15));
+for(const canvas of canvases){let drag=null;
+  canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,yaw:camera.yaw};canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener('pointermove',e=>{if(!drag)return;camera.yaw=drag.yaw+(e.clientX-drag.x)*.008;render();});
+  canvas.addEventListener('pointerup',e=>{if(drag&&canvas===$('adaptive')&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<5&&scene){
+    const rect=canvas.getBoundingClientRect(),click=[e.clientX-rect.left,e.clientY-rect.top],project=projection(canvas).project;
+    const near=scene.buildings.filter(b=>b.born<=step).map(b=>{const p=project({...b,height:camera.top?b.height:(b.floorHeight??b.height)+b.floors*2.8});return {b,d:Math.hypot(p[0]-click[0],p[1]-click[1])};}).sort((a,b)=>a.d-b.d)[0];
+    if(near&&near.d<18){selectedId=near.b.id;updateInspector();render();}}
+    drag=null;
+  });
+  for(const name of ['pointercancel','lostpointercapture'])canvas.addEventListener(name,()=>{drag=null;});
+  canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY<0?1.08:1/1.08);},{passive:false});
+  new ResizeObserver(()=>render()).observe(canvas);
+}
+$('export').addEventListener('click',()=>{
+  if(!scene)return;
+  const data={...scene,playbackStep:step,references:['https://perso.liris.cnrs.fr/egalin/Articles/2012-villages.pdf','https://perso.liris.cnrs.fr/egalin/Articles/2010-roads.pdf']};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download=`worldcraft-mountain-${scene.config.seed}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+generate();
+
+})();
+})();
+</script></body></html>

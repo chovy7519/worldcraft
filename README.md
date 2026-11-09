@@ -4,6 +4,8 @@
 
 # WorldCraft V0.6 — Natural-Language Procedural World Studio
 
+> **山地村落实验 v2**：打开 [`mountain-village.html`](mountain-village.html)，体验地形选址、宅地竞争、等高线朝向、入户步道、阶梯基础和逐户检查，支持坡度随机/网格对照与生长回放。源码独立于城市生成器。开发预览运行 `npm run serve:village`，算法与边界见 [实验说明](docs/MOUNTAIN_VILLAGE.md)，研究来源见 [调研资料](docs/PROCEDURAL_SETTLEMENT_RESEARCH.md)。
+
 以**自然语言 + 可编辑 PCG Graph + 确定性的空间规则**构建可持续修改的三维城市。首版空间链路已从基础建筑体量，扩展为 **道路网络 → 地块划分 → 功能分配 → 多类型建筑 / 多尺度公园 → 道路与地块协调的树木**。
 
 ![WorldCraft V0.3 baseline spatial workspace (V0.6 road editor is not pictured)](preview-spatial-v0.3.jpg)
